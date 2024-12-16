@@ -52,10 +52,10 @@ local plugins = {
       local builtin = require('telescope.builtin')
 
       -- Keymaps for Telescope
-      vim.keymap.set('n', 'C-ff', builtin.find_files, { desc = 'Telescope find files' })
-      vim.keymap.set('n', 'C-fg', builtin.live_grep, { desc = 'Telescope live grep' })
-      vim.keymap.set('n', 'C-fb', builtin.buffers, { desc = 'Telescope buffers' })
-      vim.keymap.set('n', 'C-fh', builtin.help_tags, { desc = 'Telescope help tags' })
+      vim.keymap.set('n', '<C-p>', builtin.find_files, { desc = 'Telescope find files' })
+      vim.keymap.set('n', '<C-g>', builtin.live_grep, { desc = 'Telescope live grep' })
+      vim.keymap.set('n', '<C-b>', builtin.buffers, { desc = 'Telescope buffers' })
+      vim.keymap.set('n', '<C-h>', builtin.help_tags, { desc = 'Telescope help tags' })
     end
   },
 }
@@ -64,5 +64,4 @@ local opts = {}
 -- Setup Lazy.nvim
 require('lazy').setup(plugins, opts)
 
--- Optional: You could still use any other configuration code here, but Lazy.nvim will handle it for you.
 
