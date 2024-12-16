@@ -31,9 +31,9 @@ require("nightfox").setup({
     colorblind = {
       enable = true,
       severity = {
-        protan = 0.3,
-        deutan = 0.3,
-        tritan = 0.3,
+        protan = 0.8,
+        deutan = 0.2,
+        tritan = 0.0,
       },
     },
   },
