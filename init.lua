@@ -62,7 +62,7 @@ local plugins = {
   -- Treesitter Plugin
     {
       "nvim-treesitter/nvim-treesitter",
-      run = ':TSUpdate',  -- Ensure parsers are installed
+      build = ':TSUpdate',  -- Ensure parsers are installed
       config = function()
         require'nvim-treesitter.configs'.setup {
           ensure_installed = { "lua", "python", "javascript", "go", "c", "html", "css", "rust", "zig", "typescript", "json", "bash" },  -- Install wanted parsers
@@ -92,5 +92,4 @@ local plugins = {
 local opts = {}
 -- Setup Lazy.nvim
 require('lazy').setup(plugins, opts)
-
 
