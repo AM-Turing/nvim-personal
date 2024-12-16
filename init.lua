@@ -21,21 +21,48 @@ end
 vim.opt.rtp:prepend(lazypath)
 
 local plugins = {
-	{ "EdenEast/nightfox.nvim", name = nightfox, priority = 1000 }
-}
-local opts = {}
-
-require("lazy").setup(plugins, opts)
-require("nightfox").setup({
-  options = {
-    colorblind = {
-      enable = true,
-      severity = {
-        protan = 0.8,
-        deutan = 0.2,
-        tritan = 0.0,
-      },
-    },
+  -- Nightfox Theme
+  {
+    "EdenEast/nightfox.nvim",
+    priority = 1000,
+    config = function()
+      require('nightfox').setup({
+        options = {
+          colorblind = {
+            enable = true,
+            severity = {
+              protan = 0.8,
+              deutan = 0.2,
+              tritan = 0.0,
+            }
+          }
+        }
+      })
+      vim.cmd('colorscheme nightfox')
+    end
   },
-})
-vim.cmd('colorscheme nightfox')
+
+  -- Telescope Plugin
+  {
+    "nvim-telescope/telescope.nvim",
+    tag = '0.1.8',
+    dependencies = { 'nvim-lua/plenary.nvim' },
+    config = function()
+      local telescope = require('telescope')
+      local builtin = require('telescope.builtin')
+
+      -- Keymaps for Telescope
+      vim.keymap.set('n', 'C-ff', builtin.find_files, { desc = 'Telescope find files' })
+      vim.keymap.set('n', 'C-fg', builtin.live_grep, { desc = 'Telescope live grep' })
+      vim.keymap.set('n', 'C-fb', builtin.buffers, { desc = 'Telescope buffers' })
+      vim.keymap.set('n', 'C-fh', builtin.help_tags, { desc = 'Telescope help tags' })
+    end
+  },
+}
+
+local opts = {}
+-- Setup Lazy.nvim
+require('lazy').setup(plugins, opts)
+
+-- Optional: You could still use any other configuration code here, but Lazy.nvim will handle it for you.
+
