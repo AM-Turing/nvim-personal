@@ -11,7 +11,7 @@ return {
       require('mason-lspconfig').setup({
         ensure_installed = { "ansiblels", "bashls", "clangd", "cssls", "dockerls", "gopls", "html", "intelephense", "jdtls", "jsonls", "lua_ls", "markdown_oxide", "pyright", "rust_analyzer", "solargraph", "terraformls", "ts_ls", "yamlls", "zls" }
       })
-    end 
+    end
   },
   {
     -- Setup lsp server language support
