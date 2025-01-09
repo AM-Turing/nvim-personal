@@ -1,8 +1,48 @@
 return {
   {
     'williamboman/mason.nvim',
+    dependencies = {
+      "WhoIsSethDaniel/mason-tool-installer.nvim",
+    },
     config = function()
-      require('mason').setup()
+      local mason_tool_installer = require("mason-tool-installer")
+      require('mason').setup({
+        ui = {
+        icons = {
+          package_installed = "✓",
+          package_pending = "➜",
+          package_uninstalled = "✗",
+        },
+      },
+    })
+
+    mason_tool_installer.setup({
+      ensure_installed = {
+          "cpplint",
+          "codespell", -- text
+          "ansible-lint", -- yaml but for ansible
+          "beautysh", -- bash, zsh
+          "black", -- python
+          "clang-format", -- c/c++
+          "clangd", -- c / c++
+          "djlint", -- html / django 
+          "eslint_d", -- js
+          "glint", -- go
+          "gofumpt", -- go
+          "golangci-lint", -- go
+          "hadolint", -- dockerfiles
+          "jsonlint", -- json
+          "luacheck", -- lua
+          "markdownlint", -- markdown
+          "prettier", -- js and more 
+          "pylint", -- python
+          "shellcheck", -- bash, sh
+          "shellharden", -- bash, sh
+          "shfmt", -- bash, sh
+          "stylua", -- lua
+          "yamllint", -- yaml
+        },
+      })
     end
   },
   {
