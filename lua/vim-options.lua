@@ -10,3 +10,13 @@ vim.keymap.set('n', '<C-K>', vim.lsp.buf.hover, {})
 vim.keymap.set('n', '<C-d>', vim.lsp.buf.definition, {})
 vim.keymap.set({ 'n', 'v' }, '<C-a>', vim.lsp.buf.code_action, {})
 vim.keymap.set('n', '<C-f>', vim.lsp.buf.format, {})
+-- Keymaps for Markdown preview
+vim.api.nvim_create_autocmd('User', {
+  pattern = 'MarkdownPreviewLoaded',  -- Wait until the plugin is loaded
+  callback = function()
+    -- Keymaps for Markdown preview
+    vim.keymap.set('n', '<C-s>', vim.cmd.MarkdownPreview)         -- Start the preview
+    vim.keymap.set('n', '<M-s>', vim.cmd.MarkdownPreviewStop)     -- Stop the preview
+    vim.keymap.set('n', '<C-p>', vim.cmd.MarkdownPreviewToggle)   -- Toggle the preview
+  end
+})

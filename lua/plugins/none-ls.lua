@@ -2,7 +2,7 @@ return {
   'nvimtools/none-ls.nvim',
   config = function()
     local null_ls = require 'null-ls'
-    null_ls.setup {
+    null_ls.setup ({
       sources = {
         -- formatting:
         -- lua
@@ -17,12 +17,11 @@ return {
         -- html
         null_ls.builtins.formatting.djlint,
         -- go
-        null_ls.builtins.formatting.gofmt,
+        null_ls.builtins.formatting.gofumpt,
+        -- javascript
+        null_ls.builtins.formatting.prettier,
         -- markdown
         null_ls.builtins.formatting.markdownlint,
-        -- terraform / opentofu
-        null_ls.builtins.formatting.opentofu_fmt,
-        null_ls.builtins.formatting.terraform_fmt,
         -- shell hardener
         null_ls.builtins.formatting.shellharden,
         -- bash
@@ -46,6 +45,8 @@ return {
         null_ls.builtins.diagnostics.pylint,
         -- json/yaml
         null_ls.builtins.diagnostics.spectral,
+        -- javascript
+        null_ls.builtins.diagnostics.eslint_d,
         -- Completion:
         -- spelling:
         null_ls.builtins.completion.spell,
@@ -53,6 +54,6 @@ return {
         null_ls.builtins.completion.luasnip,
         null_ls.builtins.completion.nvim_snippets,
       },
-    }
+    })
   end,
 }

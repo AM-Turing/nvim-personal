@@ -25,5 +25,4 @@ return {
         -- Optional: You can manually enable Tree-sitter features for specific languages
         -- require'nvim-treesitter.install'.prefer_git = true  -- Prefer GitHub over the official repository for faster parser installation
     end
-}
- 
+} 
