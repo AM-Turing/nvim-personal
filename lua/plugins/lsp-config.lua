@@ -2,84 +2,127 @@ return {
   {
     'williamboman/mason.nvim',
     dependencies = {
-      "WhoIsSethDaniel/mason-tool-installer.nvim",
+      'WhoIsSethDaniel/mason-tool-installer.nvim',
     },
     config = function()
-      local mason_tool_installer = require("mason-tool-installer")
-      require('mason').setup({
+      local mason_tool_installer = require 'mason-tool-installer'
+      require('mason').setup {
         ui = {
-        icons = {
-          package_installed = "✓",
-          package_pending = "➜",
-          package_uninstalled = "✗",
+          icons = {
+            package_installed = '✓',
+            package_pending = '➜',
+            package_uninstalled = '✗',
+          },
         },
-      },
-    })
+      }
 
-    mason_tool_installer.setup({
-      ensure_installed = {
-          "cpplint",
-          "codespell", -- text
-          "ansible-lint", -- yaml but for ansible
-          "beautysh", -- bash, zsh
-          "black", -- python
-          "clang-format", -- c/c++
-          "clangd", -- c / c++
-          "djlint", -- html / django 
-          "eslint_d", -- js
-          "glint", -- go
-          "gofumpt", -- go
-          "golangci-lint", -- go
-          "hadolint", -- dockerfiles
-          "jsonlint", -- json
-          "luacheck", -- lua
-          "markdownlint", -- markdown
-          "prettier", -- js and more 
-          "pylint", -- python
-          "shellcheck", -- bash, sh
-          "shellharden", -- bash, sh
-          "shfmt", -- bash, sh
-          "stylua", -- lua
-          "yamllint", -- yaml
+      mason_tool_installer.setup {
+        ensure_installed = {
+          'cpplint',
+          'codespell', -- text
+          'ansible-lint', -- yaml but for ansible
+          'beautysh', -- bash, zsh
+          'black', -- python
+          'clang-format', -- c/c++
+          'clangd', -- c / c++
+          'djlint', -- html / django
+          'eslint_d', -- js
+          'glint', -- go
+          'gofumpt', -- go
+          'golangci-lint', -- go
+          'hadolint', -- dockerfiles
+          'jsonlint', -- json
+          'luacheck', -- lua
+          'markdownlint', -- markdown
+          'prettier', -- js and more
+          'pylint', -- python
+          'shellcheck', -- bash, sh
+          'shellharden', -- bash, sh
+          'shfmt', -- bash, sh
+          'stylua', -- lua
+          'yamllint', -- yaml
         },
-      })
-    end
+      }
+    end,
   },
   {
     'williamboman/mason-lspconfig.nvim',
     config = function()
-      require('mason-lspconfig').setup({
-        ensure_installed = { "ansiblels", "bashls", "clangd", "cssls", "dockerls", "gopls", "html", "intelephense", "jdtls", "jsonls", "lua_ls", "markdown_oxide", "pyright", "rust_analyzer", "solargraph", "terraformls", "ts_ls", "yamlls", "zls" }
-      })
-    end
+      require('mason-lspconfig').setup {
+        ensure_installed = {
+          'ansiblels',
+          'bashls',
+          'clangd',
+          'cssls',
+          'dockerls',
+          'gopls',
+          'html',
+          'intelephense',
+          'jdtls',
+          'jsonls',
+          'lua_ls',
+          'markdown_oxide',
+          'pyright',
+          'rust_analyzer',
+          'solargraph',
+          'terraformls',
+          'ts_ls',
+          'yamlls',
+          'zls',
+        },
+      }
+    end,
   },
   {
     -- Setup lsp server language support
     'neovim/nvim-lspconfig',
+    lazy = false,
     config = function()
-      local lspconfig = require('lspconfig')
-      lspconfig.ansiblels.setup({})
-      lspconfig.bashls.setup({})
+      -- set up nvim lsp completion
+      local capabilities = require('cmp_nvim_lsp').default_capabilities
+      -- nvmim lspconfig
+      local lspconfig = require 'lspconfig'
+      lspconfig.ansiblels.setup {
+        capabilities = capabilities,
+      }
+      lspconfig.bashls.setup {
+        capabilities = capabilities,
+      }
       -- C & C++ below
-      lspconfig.clangd.setup({})
-      lspconfig.cssls.setup({})
-      lspconfig.dockerls.setup({})
-      lspconfig.gopls.setup({})
-      lspconfig.html.setup({})
+      lspconfig.clangd.setup {
+        capabilities = capabilities,
+      }
+      lspconfig.cssls.setup {
+        capabilities = capabilities,
+      }
+      lspconfig.dockerls.setup {
+        capabilities = capabilities,
+      }
+      lspconfig.gopls.setup {
+        capabilities = capabilities,
+      }
+      lspconfig.html.setup {
+        capabilities = capabilities,
+      }
       -- PHP below
-      lspconfig.intelephense.setup({
+      lspconfig.intelephense.setup {
+        capabilities = capabilities,
         settings = {
           intelephense = {
-            filetypes = { "php", "html", "css", "javascript" },
+            filetypes = { 'php', 'html', 'css', 'javascript' },
           },
         },
-      })
+      }
       -- Java below
-      lspconfig.jdtls.setup({
-        cmd = { "java-ls" },
-      })
-      lspconfig.jsonls.setup({})
-      lspconfig.lua_ls.setup({
+      lspconfig.jdtls.setup {
+        capabilities = capabilities,
+        cmd = { 'java-ls' },
+      }
+      lspconfig.jsonls.setup {
+        capabilities = capabilities,
+      }
+      lspconfig.lua_ls.setup {
+        capabilities = capabilities,
         settings = {
           Lua = {
             diagnostics = {
@@ -87,44 +130,56 @@ return {
             },
           },
         },
-      })
-      lspconfig.markdown_oxide.setup({})
+      }
+      lspconfig.markdown_oxide.setup {
+        capabilities = capabilities,
+      }
       -- Python below
-      lspconfig.pyright.setup({})
-      lspconfig.rust_analyzer.setup({
+      lspconfig.pyright.setup {
+        capabilities = capabilities,
+      }
+      lspconfig.rust_analyzer.setup {
+        capabilities = capabilities,
         settings = {
-          ["rust-analyzer"] = {
+          ['rust-analyzer'] = {
             diagnostics = {
-              enable = true;
+              enable = true,
             },
           },
         },
-      })
+      }
       -- Ruby below
-      lspconfig.solargraph.setup({
+      lspconfig.solargraph.setup {
+        capabilities = capabilities,
         settings = {
           solargraph = {
             diagnostics = true,
           },
         },
-      })
-      lspconfig.terraformls.setup({})
+      }
+      lspconfig.terraformls.setup {
+        capabilities = capabilities,
+      }
       -- Javascript & Typescript below
-      lspconfig.ts_ls.setup({
-        filetypes = { "typescript", "typescriptreact", "javascript", "javascriptreact" },
-      })
-      lspconfig.yamlls.setup({
+      lspconfig.ts_ls.setup {
+        capabilities = capabilities,
+        filetypes = { 'typescript', 'typescriptreact', 'javascript', 'javascriptreact' },
+      }
+      lspconfig.yamlls.setup {
+        capabilities = capabilities,
         settings = {
           yaml = {
             schemas = {
-              ["https://json.schemastore.org/github-workflow.json"] = ".github/workflows/*",
+              ['https://json.schemastore.org/github-workflow.json'] = '.github/workflows/*',
             },
           },
         },
-      })
+      }
       -- Zig below
-      lspconfig.zls.setup({})
-    end
-  }
+      lspconfig.zls.setup {
+        capabilities = capabilities,
+      }
+    end,
+  },
 }
 -- ctrl shift + :h vim.lsp.buff - shows options for lsp interaction to use for key mapping

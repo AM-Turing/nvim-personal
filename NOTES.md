@@ -8,7 +8,6 @@
   - Failed...
   - Required:sudo
 
-        
         sudo apt install nodejs npm
         which npm
         vim ~/.bashrc
