@@ -2,7 +2,7 @@
 
 This README documents this refactored Neovim configuration, how to install it on a fresh Debian-based VM, how to update an existing Neovim instance that already uses this layout, and how to maintain the major components.
 
-The configuration is based on a cleaned-up fork of Kickstart.nvim, but the active layout has been simplified so that all active plugin specs live in one directory:
+The active layout has been simplified so that all plugin specs live in one directory:
 
 ```text
 ~/.config/nvim/lua/plugins/
@@ -17,7 +17,6 @@ Expected layout:
 ```text
 .
 ├── doc
-│   ├── kickstart.txt
 │   └── tags
 ├── init.lua
 ├── lazy-lock.json
@@ -44,12 +43,6 @@ Expected layout:
 └── README.md
 ```
 
-There should no longer be active plugin specs in:
-
-```text
-lua/kickstart/plugins/
-lua/custom/plugins/
-```
 
 The active plugin import should be:
 
@@ -204,12 +197,6 @@ require('lazy').setup {
 require 'vim-options'
 ```
 
-Do not import deleted or archived plugin folders:
-
-```lua
-{ import = 'kickstart.plugins' }
-{ import = 'custom.plugins' }
-```
 
 ---
 
@@ -346,6 +333,94 @@ fd       -> $HOME/.local/bin/fd
 ```
 
 ---
+
+---
+
+## Modern Neovim Requirement
+
+This configuration uses `lazy.nvim`, which requires a newer Neovim than the version shipped by some Debian releases.
+
+A common failure looks like this:
+
+```text
+Error detected while processing /home/dev1/.config/nvim/init.lua:
+lazy.nvim requires Neovim >= 0.8.0
+```
+
+If `nvim --version` shows something old, such as:
+
+```text
+NVIM v0.7.2
+```
+
+then the config is not the problem. The Neovim binary is too old.
+
+The bootstrap script installs a modern official Neovim release into:
+
+```text
+~/tools/neovim/nvim-linux-x86_64/
+```
+
+and symlinks it to:
+
+```text
+~/.local/bin/nvim
+```
+
+After running the bootstrap script, reload your shell and confirm the right binary is first in PATH:
+
+```bash
+source ~/.bashrc
+hash -r
+
+which nvim
+nvim --version
+```
+
+Expected path:
+
+```text
+/home/dev1/.local/bin/nvim
+```
+
+If `which nvim` still shows:
+
+```text
+/usr/bin/nvim
+```
+
+then your shell is still using the old Debian package. Confirm `~/.local/bin` appears before `/usr/bin`:
+
+```bash
+echo "$PATH" | tr ':' '\n'
+```
+
+Manual recovery:
+
+```bash
+mkdir -p ~/tools/neovim
+cd ~/tools/neovim
+
+curl -fLO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz
+
+rm -rf nvim-linux-x86_64
+tar xzf nvim-linux-x86_64.tar.gz
+
+mkdir -p ~/.local/bin
+ln -sf "$HOME/tools/neovim/nvim-linux-x86_64/bin/nvim" "$HOME/.local/bin/nvim"
+
+source ~/.bashrc
+hash -r
+
+which nvim
+nvim --version
+```
+
+Then rerun plugin setup:
+
+```bash
+nvim --headless "+Lazy sync" +qa
+```
 
 ## 6. Python Provider Setup for Debian
 
@@ -525,6 +600,8 @@ Checks for an existing ~/.config/nvim
 Prompts the user to replace, upgrade in place, or skip if an existing config is found
 Clones this repo from GitHub using SSH or HTTPS
 Installs Debian/Ubuntu apt dependencies
+Installs a modern official Neovim release into ~/tools/neovim
+Symlinks the modern nvim binary into ~/.local/bin/nvim
 Creates/updates shell PATH helpers in ~/.bashrc
 Creates the Debian-safe Neovim Python provider venv
 Installs Python tooling into the Neovim provider venv
@@ -688,6 +765,7 @@ Use these when you want a smaller or faster setup.
 
 ```bash
 ./bootstrap.sh --skip-apt
+./bootstrap.sh --skip-neovim-install
 ./bootstrap.sh --skip-node-globals
 ./bootstrap.sh --skip-rust
 ./bootstrap.sh --skip-go
@@ -700,6 +778,7 @@ Flag meanings:
 | Flag | Meaning |
 |---|---|
 | `--skip-apt` | Do not install apt packages |
+| `--skip-neovim-install` | Do not install the official modern Neovim release tarball |
 | `--skip-node-globals` | Do not install global npm tools |
 | `--skip-rust` | Do not install Rust/stylua through cargo |
 | `--skip-go` | Do not install Go tools such as `gopls` |
@@ -869,8 +948,6 @@ ls ~/.local/share/nvim/python/venv/bin/python
 
 ## 9. Updating an Existing Neovim Instance to This Refactored System
 
-Use this section when a VM already has the old Kickstart-style config and you want to migrate it to the refactored structure.
-
 ### 9.1 Back up the existing config
 
 ```bash
@@ -895,14 +972,6 @@ The active structure should be:
 ~/.config/nvim/lua/plugins/*.lua
 ```
 
-Remove old active plugin directories once everything has been migrated:
-
-```bash
-rm -rf ~/.config/nvim/lua/kickstart
-rm -rf ~/.config/nvim/lua/custom
-```
-
-Only do this after confirming the useful files have been migrated.
 
 ### 9.3 Confirm `init.lua` only imports the active plugin directory
 
@@ -918,12 +987,6 @@ Expected:
 { import = 'plugins' },
 ```
 
-Not expected:
-
-```lua
-{ import = 'kickstart.plugins' },
-{ import = 'custom.plugins' },
-```
 
 ### 9.4 Reset or resync plugins
 
@@ -1822,6 +1885,55 @@ Confirm `init.lua` imports only:
 ```lua
 { import = 'plugins' },
 ```
+
+### `lazy.nvim requires Neovim >= 0.8.0`
+
+Check your active Neovim version:
+
+```bash
+which nvim
+nvim --version
+```
+
+If it reports an old Debian package such as:
+
+```text
+/usr/bin/nvim
+NVIM v0.7.2
+```
+
+install or activate the modern official Neovim release:
+
+```bash
+mkdir -p ~/tools/neovim
+cd ~/tools/neovim
+
+curl -fLO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz
+rm -rf nvim-linux-x86_64
+tar xzf nvim-linux-x86_64.tar.gz
+
+mkdir -p ~/.local/bin
+ln -sf "$HOME/tools/neovim/nvim-linux-x86_64/bin/nvim" "$HOME/.local/bin/nvim"
+
+source ~/.bashrc
+hash -r
+
+which nvim
+nvim --version
+```
+
+Expected:
+
+```text
+/home/dev1/.local/bin/nvim
+```
+
+Then rerun:
+
+```bash
+nvim --headless "+Lazy sync" +qa
+```
+
 
 ### Lazy errors
 

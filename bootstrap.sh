@@ -580,6 +580,25 @@ install_or_upgrade_config() {
   fi
 }
 
+install_modern_neovim() {
+  log "Installing modern Neovim from official release tarball"
+
+  mkdir -p "$HOME/tools/neovim"
+  cd "$HOME/tools/neovim"
+
+  curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz
+
+  rm -rf nvim-linux-x86_64
+  tar xzf nvim-linux-x86_64.tar.gz
+
+  mkdir -p "$HOME/.local/bin"
+  ln -sf "$HOME/tools/neovim/nvim-linux-x86_64/bin/nvim" "$HOME/.local/bin/nvim"
+
+  hash -r || true
+
+  "$HOME/.local/bin/nvim" --version
+}
+
 run_neovim_validation() {
   if [[ "$SKIP_VALIDATION" == "true" ]]; then
     warn "Skipping Neovim validation."
@@ -649,6 +668,7 @@ main() {
   log "Starting nvim-personal bootstrap"
 
   install_apt_dependencies
+  install_modern_neovim
   ensure_bashrc_block
   ensure_fd_symlink
   setup_python_provider
