@@ -1,56 +1,221 @@
-# Neovim Environment Setup
+# Neovim VM Setup Guide
 
-This document bootstraps this Neovim configuration on a fresh Debian/Ubuntu-based VM.
+This README documents this refactored Neovim configuration, how to install it on a fresh Debian-based VM, how to update an existing Neovim instance that already uses this layout, and how to maintain the major components.
 
-The config is based on a fork of `kickstart.nvim` and expects this repository to live at:
+The configuration is based on a cleaned-up fork of Kickstart.nvim, but the active layout has been simplified so that all active plugin specs live in one directory:
 
-```bash
-~/.config/nvim
+```text
+~/.config/nvim/lua/plugins/
 ```
-
-Neovim will load:
-
-```bash
-~/.config/nvim/init.lua
-```
-
-The rest of the configuration is loaded from the `lua/` directory.
 
 ---
 
-## 1. Expected Repository Layout
+## 1. Final Directory Structure
 
-After installation, the config should look similar to this:
+Expected layout:
 
 ```text
-~/.config/nvim/
-├── doc/
+.
+├── doc
+│   ├── kickstart.txt
+│   └── tags
 ├── init.lua
 ├── lazy-lock.json
-├── lua/
-│   ├── custom/
-│   │   └── plugins/
-│   ├── kickstart/
-│   │   └── plugins/
-│   ├── plugins/
+├── LICENSE.md
+├── lua
+│   ├── health.lua
+│   ├── plugins
+│   │   ├── autopairs.lua
+│   │   ├── completions.lua
+│   │   ├── dashboard.lua
+│   │   ├── debug.lua
+│   │   ├── formatting.lua
+│   │   ├── gitsigns.lua
+│   │   ├── indent_line.lua
+│   │   ├── linting.lua
+│   │   ├── lsp-config.lua
+│   │   ├── lualine.lua
+│   │   ├── markdown-preview.lua
+│   │   ├── neotree.lua
+│   │   ├── nightfox.lua
+│   │   ├── telescope.lua
+│   │   └── treesitter.lua
 │   └── vim-options.lua
-├── NOTES.md
 └── README.md
 ```
 
-The key file is:
+There should no longer be active plugin specs in:
 
 ```text
-init.lua
+lua/kickstart/plugins/
+lua/custom/plugins/
 ```
 
-That file bootstraps `lazy.nvim`, loads editor options, and imports plugin specs from the `lua/` tree.
+The active plugin import should be:
+
+```lua
+require('lazy').setup {
+  { import = 'plugins' },
+}
+```
 
 ---
 
-## 2. Install System Dependencies
+## 2. File Ownership Model
 
-Run this first on a fresh Debian/Ubuntu VM:
+Use this model to decide where future changes belong.
+
+```text
+init.lua
+  Bootstrap lazy.nvim
+  Set leader key
+  Set Python provider
+  Import plugin specs
+  Load vim-options.lua
+
+lua/vim-options.lua
+  General editor options
+  General keymaps
+  Custom user commands such as :ConfigHealth
+
+lua/health.lua
+  Custom environment health checks
+  Not a Lazy plugin
+  Do not place in lua/plugins/
+
+lua/plugins/completions.lua
+  nvim-cmp
+  LuaSnip
+  Completion sources
+  Snippet integration
+
+lua/plugins/formatting.lua
+  conform.nvim
+  Formatters by filetype
+  Format-on-save
+  Manual format keymap
+
+lua/plugins/linting.lua
+  nvim-lint
+  Linters by filetype
+  Automatic linting
+  Manual lint keymap
+
+lua/plugins/lsp-config.lua
+  Mason
+  Mason Tool Installer
+  Mason LSPConfig
+  nvim-lspconfig server setup
+
+lua/plugins/treesitter.lua
+  Treesitter parsers
+  Syntax highlighting
+  Indentation
+  Textobjects
+
+lua/plugins/telescope.lua
+  Telescope setup
+  Telescope extensions
+  Telescope keymaps
+
+lua/plugins/neotree.lua
+  Neo-tree behavior
+  File tree mappings
+
+lua/plugins/debug.lua
+  nvim-dap
+  nvim-dap-ui
+  Go debugging
+  Python debugging
+
+lua/plugins/gitsigns.lua
+  Git gutter signs
+  Git hunk actions
+  Git blame/diff toggles
+
+lua/plugins/autopairs.lua
+  Automatic bracket/quote pairing
+  nvim-cmp autopairs integration
+
+lua/plugins/indent_line.lua
+  Indentation guides
+
+lua/plugins/nightfox.lua
+  Colorscheme
+
+lua/plugins/lualine.lua
+  Statusline
+
+lua/plugins/markdown-preview.lua
+  Markdown preview behavior
+
+lua/plugins/dashboard.lua
+  Alpha dashboard
+```
+
+---
+
+## 3. Current `init.lua` Requirements
+
+The `init.lua` should set the leader key before plugins load.
+
+Expected structure:
+
+```lua
+-- Leader keys must be set before lazy.nvim loads plugin keymaps.
+vim.g.mapleader = ' '
+vim.g.maplocalleader = ' '
+
+-- Dedicated Debian-safe Python provider venv.
+vim.g.python3_host_prog = vim.fn.expand '~/.local/share/nvim/python/venv/bin/python'
+
+local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
+
+if not (vim.uv or vim.loop).fs_stat(lazypath) then
+  local lazyrepo = 'https://github.com/folke/lazy.nvim.git'
+
+  local out = vim.fn.system {
+    'git',
+    'clone',
+    '--filter=blob:none',
+    '--branch=stable',
+    lazyrepo,
+    lazypath,
+  }
+
+  if vim.v.shell_error ~= 0 then
+    vim.api.nvim_echo({
+      { 'Failed to clone lazy.nvim:\n', 'ErrorMsg' },
+      { out, 'WarningMsg' },
+      { '\nPress any key to exit...' },
+    }, true, {})
+
+    vim.fn.getchar()
+    os.exit(1)
+  end
+end
+
+vim.opt.rtp:prepend(lazypath)
+
+require('lazy').setup {
+  { import = 'plugins' },
+}
+
+require 'vim-options'
+```
+
+Do not import deleted or archived plugin folders:
+
+```lua
+{ import = 'kickstart.plugins' }
+{ import = 'custom.plugins' }
+```
+
+---
+
+## 4. Fresh Debian VM Setup
+
+Run this first on a fresh Debian/Ubuntu VM.
 
 ```bash
 sudo apt update
@@ -95,50 +260,13 @@ sudo apt install -y \
   codespell
 ```
 
-### Why these packages matter
+### Fix `fd` on Debian/Ubuntu
 
-| Package | Purpose |
-|---|---|
-| `git` | Required for cloning plugin repositories |
-| `curl`, `wget` | Required by installers and plugin tooling |
-| `unzip`, `tar`, `gzip`, `xz-utils` | Required for extracting tools, language servers, and Neovim releases |
-| `build-essential`, `gcc`, `g++`, `make`, `cmake` | Required for compiling Treesitter parsers and some native plugin components |
-| `ripgrep` | Required/recommended for Telescope live grep |
-| `fd-find` | Required/recommended for fast file searching |
-| `xclip`, `wl-clipboard` | Clipboard support for X11 and Wayland sessions |
-| `python3`, `python3-pip`, `python3-venv`, `python3-dev` | Python provider support, virtual environments, and Python tooling |
-| `nodejs`, `npm` | Required by many LSP servers and Markdown Preview |
-| `lua5.1`, `liblua5.1-0-dev`, `libreadline-dev`, `luarocks` | Helps resolve Lua/hererocks-related plugin installation failures |
-| `ruby-full` | Ruby language tooling support |
-| `openjdk-17-jdk` | Java language tooling support |
-| `clangd` | C/C++ language server |
-| `shellcheck` | Shell script diagnostics |
-| `codespell` | Spelling lint support |
-
----
-
-## 3. Fix `fd` on Debian/Ubuntu
-
-On Debian/Ubuntu, the `fd` binary is often installed as `fdfind`.
-
-Check it:
-
-```bash
-which fdfind
-```
-
-Create a user-local symlink named `fd`:
+Debian usually installs `fd` as `fdfind`.
 
 ```bash
 mkdir -p ~/.local/bin
 ln -sf "$(which fdfind)" ~/.local/bin/fd
-```
-
-Make sure `~/.local/bin` is in your shell path:
-
-```bash
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
 ```
 
 Verify:
@@ -150,64 +278,84 @@ fd --version
 
 ---
 
-## 4. Install or Update Neovim
+## 5. Bashrc / PATH Setup
 
-Check the version currently installed:
+Use clean directory-based PATH entries.
+
+Recommended `~/.bashrc` additions:
 
 ```bash
-nvim --version
+# User-local executables
+export PATH="$HOME/.local/bin:$PATH"
+
+# Rust / Cargo environment
+if [ -f "$HOME/.cargo/env" ]; then
+    . "$HOME/.cargo/env"
+fi
+
+# Optional local environment file
+if [ -f "$HOME/.local/bin/env" ]; then
+    . "$HOME/.local/bin/env"
+fi
+
+# Go toolchain
+export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
 ```
 
-This configuration should be run on a current stable Neovim release. If the distro package is outdated, install Neovim manually from the official release artifact.
+Do **not** add executable files directly to `PATH`.
 
-### Option A: Install from apt
+Wrong:
 
 ```bash
-sudo apt install -y neovim
-nvim --version
+export PATH="$PATH:/usr/bin/npm"
 ```
 
-### Option B: Install Neovim AppImage
+Correct:
 
 ```bash
-mkdir -p ~/tools/neovim
-cd ~/tools/neovim
-
-curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.appimage
-chmod u+x nvim-linux-x86_64.appimage
-
-sudo ln -sf "$HOME/tools/neovim/nvim-linux-x86_64.appimage" /usr/local/bin/nvim
-
-nvim --version
+# /usr/bin is already normally in PATH.
+which npm
 ```
 
-If the AppImage complains about FUSE, install FUSE support:
+Verify after editing:
 
 ```bash
-sudo apt install -y libfuse2
+source ~/.bashrc
+
+echo "$PATH" | tr ':' '\n'
+
+which npm
+which node
+which go
+which gopls
+which cargo
+which stylua
+which fd
 ```
 
-Then retry:
+Expected examples:
 
-```bash
-nvim --version
+```text
+npm      -> /usr/bin/npm
+node     -> /usr/bin/node
+go       -> /usr/local/go/bin/go
+gopls    -> $HOME/go/bin/gopls
+cargo    -> $HOME/.cargo/bin/cargo
+stylua   -> $HOME/.cargo/bin/stylua or Mason-managed path
+fd       -> $HOME/.local/bin/fd
 ```
 
 ---
 
-## 5. Install Python Provider Support
+## 6. Python Provider Setup for Debian
 
-Debian 12+ uses an externally managed system Python environment. That means you should not install Neovim Python packages directly into the system Python environment with:
+Debian 12+ uses an externally managed system Python environment. Do not use:
 
 ```bash
 python3 -m pip install --user pynvim
 ```
 
-Instead, create a dedicated Python virtual environment for Neovim's Python provider.
-
-This virtual environment should live under Neovim's data directory, not inside the config directory.
-
-Use:
+Instead, create a dedicated Neovim Python provider venv:
 
 ```bash
 sudo apt install -y python3-venv python3-pip
@@ -216,52 +364,8 @@ mkdir -p ~/.local/share/nvim/python
 python3 -m venv ~/.local/share/nvim/python/venv
 
 ~/.local/share/nvim/python/venv/bin/python -m pip install --upgrade pip
-~/.local/share/nvim/python/venv/bin/python -m pip install pynvim
-```
-
-Then tell Neovim to use that Python interpreter.
-
-Add this near the top of either:
-
-```text
-~/.config/nvim/init.lua
-```
-
-or:
-
-```text
-~/.config/nvim/lua/vim-options.lua
-```
-
-```lua
-vim.g.python3_host_prog = vim.fn.expand '~/.local/share/nvim/python/venv/bin/python'
-```
-
-Verify inside Neovim:
-
-```vim
-:checkhealth provider
-```
-
-### Where things belong
-
-```text
-~/.config/nvim/
-  Neovim Lua config only
-
-~/.local/share/nvim/python/venv/
-  Dedicated Python virtual environment used by Neovim itself
-
-~/.local/bin/
-  User executables and symlinks, not virtual environments
-```
-
-### Optional Python development tools
-
-If you want Python formatters, linters, or debuggers available globally to Neovim, install them into the same Neovim provider venv:
-
-```bash
 ~/.local/share/nvim/python/venv/bin/python -m pip install --upgrade \
+  pynvim \
   debugpy \
   ruff \
   black \
@@ -269,14 +373,56 @@ If you want Python formatters, linters, or debuggers available globally to Neovi
   mypy
 ```
 
-This keeps Python tooling isolated from Debian's system Python while still making the tools available to Neovim.
+Your `init.lua` should point Neovim to this interpreter:
 
+```lua
+vim.g.python3_host_prog = vim.fn.expand '~/.local/share/nvim/python/venv/bin/python'
+```
+
+Verify:
+
+```bash
+~/.local/share/nvim/python/venv/bin/python -m pip list
+```
+
+Inside Neovim:
+
+```vim
+:checkhealth provider
+```
 
 ---
 
-## 6. Install Node/NPM Language Tooling
+## 7. Optional Language Runtime Setup
 
-Install globally useful language servers and supporting tools:
+### Rust and Stylua
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source "$HOME/.cargo/env"
+cargo install stylua
+```
+
+### Go
+
+Download the current Linux AMD64 tarball from the official Go downloads page.
+
+Then:
+
+```bash
+cd ~/Downloads
+
+sudo rm -rf /usr/local/go
+sudo tar -C /usr/local -xzf go*.linux-amd64.tar.gz
+
+echo 'export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+go version
+go install golang.org/x/tools/gopls@latest
+```
+
+### Node / NPM Tools
 
 ```bash
 sudo npm install -g \
@@ -292,166 +438,17 @@ sudo npm install -g \
   yarn
 ```
 
-Optional Vue tooling:
+### Ruby
 
 ```bash
-sudo npm install -g \
-  @vue/language-server \
-  typescript
-```
-
-Older setups may refer to `vls`. Newer Vue projects generally use `@vue/language-server`.
-
-### Important PATH note
-
-Do **not** add this to your shell config:
-
-```bash
-export PATH=$PATH:/usr/bin/npm
-```
-
-`/usr/bin/npm` is the npm executable, not a directory.
-
-If `npm` is installed through apt, this should already work:
-
-```bash
-which npm
-npm --version
-```
-
-If globally installed npm binaries are not found, check:
-
-```bash
-npm config get prefix
-```
-
-Common global binary locations include:
-
-```text
-/usr/local/bin
-/usr/bin
-~/.npm-global/bin
-```
-
-Only directories should be added to `PATH`.
-
----
-
-## 7. Install Ruby Tooling
-
-For Ruby support:
-
-```bash
-sudo gem install bundler
-```
-
-Optional Ruby language server:
-
-```bash
-sudo gem install ruby-lsp
-```
-
-Verify:
-
-```bash
-ruby --version
-gem --version
-bundle --version
+sudo gem install bundler ruby-lsp
 ```
 
 ---
 
-## 8. Install Rust and Stylua
+## 8. Install This Config on a Fresh VM
 
-Install Rust with `rustup`:
-
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-
-Load the Rust environment:
-
-```bash
-source "$HOME/.cargo/env"
-```
-
-Persist Rust in your shell:
-
-```bash
-echo 'source "$HOME/.cargo/env"' >> ~/.bashrc
-```
-
-Install `stylua`:
-
-```bash
-cargo install stylua
-```
-
-Verify:
-
-```bash
-rustc --version
-cargo --version
-stylua --version
-```
-
----
-
-## 9. Install Go
-
-Download the current Linux AMD64 Go tarball from:
-
-```text
-https://go.dev/dl/
-```
-
-Example flow after downloading the tarball:
-
-```bash
-cd ~/Downloads
-
-sudo rm -rf /usr/local/go
-sudo tar -C /usr/local -xzf go*.linux-amd64.tar.gz
-```
-
-Add Go to your shell path:
-
-```bash
-echo 'export PATH="/usr/local/go/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-Verify:
-
-```bash
-go version
-```
-
-Install Go language tooling:
-
-```bash
-go install golang.org/x/tools/gopls@latest
-```
-
-Add the Go user binary path:
-
-```bash
-echo 'export PATH="$HOME/go/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-Verify:
-
-```bash
-which gopls
-gopls version
-```
-
----
-
-## 10. Clone This Neovim Config
-
-Back up any existing config first:
+Back up any existing Neovim config:
 
 ```bash
 mv ~/.config/nvim ~/.config/nvim.bak.$(date +%Y%m%d-%H%M%S) 2>/dev/null || true
@@ -463,29 +460,12 @@ Clone your fork:
 git clone <YOUR_FORK_URL> ~/.config/nvim
 ```
 
-Or, if copying from a local folder:
+Or copy this directory into place:
 
 ```bash
 mkdir -p ~/.config
 cp -a /path/to/this/config ~/.config/nvim
 ```
-
-Confirm:
-
-```bash
-ls ~/.config/nvim/init.lua
-ls ~/.config/nvim/lua
-```
-
-If this is a fresh VM, confirm that your config includes the Python provider path:
-
-```lua
-vim.g.python3_host_prog = vim.fn.expand '~/.local/share/nvim/python/venv/bin/python'
-```
-
----
-
-## 11. First Neovim Launch
 
 Start Neovim:
 
@@ -493,27 +473,17 @@ Start Neovim:
 nvim
 ```
 
-On first launch, `lazy.nvim` should bootstrap itself and begin installing plugins.
-
-Inside Neovim, run:
-
-```vim
-:Lazy
-```
-
-Because this repo includes `lazy-lock.json`, prefer this first for reproducible setup:
-
-```vim
-:Lazy restore
-```
-
 Then run:
 
 ```vim
+:Lazy restore
 :Lazy sync
+:Mason
+:ConfigHealth
+:checkhealth
 ```
 
-Quit and reopen:
+Restart Neovim:
 
 ```vim
 :qa
@@ -525,370 +495,1526 @@ nvim
 
 ---
 
-## 12. Install Mason Tools
+---
 
-Inside Neovim, open Mason:
+## Bootstrap Script Usage
 
-```vim
-:Mason
-```
-
-Recommended tools for this setup:
+This repository includes a top-level bootstrap script:
 
 ```text
-lua-language-server
-stylua
-pyright
-ruff
-black
-debugpy
-bash-language-server
-shellcheck
-shfmt
-json-lsp
-yaml-language-server
-marksman
-dockerfile-language-server
-typescript-language-server
-eslint-lsp
-html-lsp
-css-lsp
-clangd
-jdtls
-gopls
-ruby-lsp
+bootstrap.sh
 ```
 
-Some tools may already be installed through `apt`, `npm`, `pip`, `cargo`, `gem`, or `go install`.
+The script is intended to automate setup on a fresh Debian/Ubuntu-based VM or update an existing Neovim environment to this refactored configuration.
 
-Use Mason for convenience, but avoid fighting with it if a tool is already working from the system path.
+Repository sources used by the bootstrap script:
+
+```text
+SSH:   git@github.com:AM-Turing/nvim-personal.git
+HTTPS: https://github.com/AM-Turing/nvim-personal.git
+```
 
 ---
 
-## 13. Markdown Preview Setup
+### What the Bootstrap Script Does
 
-If `markdown-preview.nvim` installs but `:MarkdownPreview` does nothing, manually install its web app dependencies.
+The script performs the following tasks:
 
-After the plugin exists:
+```text
+Checks for an existing ~/.config/nvim
+Prompts the user to replace, upgrade in place, or skip if an existing config is found
+Clones this repo from GitHub using SSH or HTTPS
+Installs Debian/Ubuntu apt dependencies
+Creates/updates shell PATH helpers in ~/.bashrc
+Creates the Debian-safe Neovim Python provider venv
+Installs Python tooling into the Neovim provider venv
+Installs common Node/NPM tooling
+Installs Rust/stylua when enabled
+Installs Go gopls when Go is present
+Installs Ruby tooling when enabled
+Runs Lazy sync
+Runs Treesitter update
+Runs ConfigHealth/checkhealth validation
+```
+
+---
+
+### First-Time Use on a Fresh VM
+
+On a fresh VM, download or clone the repository first.
+
+Using HTTPS:
+
+```bash
+git clone https://github.com/AM-Turing/nvim-personal.git
+cd nvim-personal
+```
+
+Using SSH:
+
+```bash
+git clone git@github.com:AM-Turing/nvim-personal.git
+cd nvim-personal
+```
+
+Then run:
+
+```bash
+chmod +x bootstrap.sh
+./bootstrap.sh
+```
+
+If no existing Neovim config exists at:
+
+```text
+~/.config/nvim
+```
+
+the script will clone the GitHub project and install it as the active Neovim configuration.
+
+---
+
+### Existing Neovim Setup Behavior
+
+If the script detects an existing config at:
+
+```text
+~/.config/nvim
+```
+
+it prompts for one of three choices:
+
+```text
+1) backup-replace
+   Back up the existing config, then replace it with a fresh clone.
+
+2) upgrade-in-place
+   Back up the existing config, then copy the new repo over the existing config.
+   This can preserve extra local files, but old unused files may remain.
+
+3) skip
+   Leave the existing Neovim config unchanged.
+```
+
+Recommended choice for most migrations:
+
+```text
+backup-replace
+```
+
+Recommended choice if you have local files you know you want to preserve:
+
+```text
+upgrade-in-place
+```
+
+The script creates timestamped backups before replacing or upgrading.
+
+Example backup path:
+
+```text
+~/.config/nvim.backup.20260525-213000
+```
+
+---
+
+### Clone Mode: SSH vs HTTPS
+
+By default, the script tries to detect whether GitHub SSH authentication is available.
+
+If SSH appears available, it offers to use:
+
+```text
+git@github.com:AM-Turing/nvim-personal.git
+```
+
+Otherwise, it uses HTTPS:
+
+```text
+https://github.com/AM-Turing/nvim-personal.git
+```
+
+Force HTTPS:
+
+```bash
+./bootstrap.sh --repo-mode https
+```
+
+Force SSH:
+
+```bash
+./bootstrap.sh --repo-mode ssh
+```
+
+---
+
+### Non-Interactive Examples
+
+Use defaults where possible:
+
+```bash
+./bootstrap.sh --yes
+```
+
+Fresh install or automated setup using HTTPS:
+
+```bash
+./bootstrap.sh --yes --repo-mode https
+```
+
+Existing config: back up and replace with a fresh clone:
+
+```bash
+./bootstrap.sh --repo-mode https --existing-mode backup-replace
+```
+
+Existing config: back up and upgrade in place:
+
+```bash
+./bootstrap.sh --repo-mode https --existing-mode upgrade-in-place
+```
+
+Skip validation commands:
+
+```bash
+./bootstrap.sh --skip-validation
+```
+
+---
+
+### Optional Skip Flags
+
+Use these when you want a smaller or faster setup.
+
+```bash
+./bootstrap.sh --skip-apt
+./bootstrap.sh --skip-node-globals
+./bootstrap.sh --skip-rust
+./bootstrap.sh --skip-go
+./bootstrap.sh --skip-gem
+./bootstrap.sh --skip-validation
+```
+
+Flag meanings:
+
+| Flag | Meaning |
+|---|---|
+| `--skip-apt` | Do not install apt packages |
+| `--skip-node-globals` | Do not install global npm tools |
+| `--skip-rust` | Do not install Rust/stylua through cargo |
+| `--skip-go` | Do not install Go tools such as `gopls` |
+| `--skip-gem` | Do not install Ruby gems |
+| `--skip-validation` | Do not run headless Neovim validation commands |
+
+---
+
+### Bootstrap-Managed Python Provider
+
+The bootstrap script creates this dedicated Neovim Python provider venv:
+
+```text
+~/.local/share/nvim/python/venv
+```
+
+It installs:
+
+```text
+pynvim
+debugpy
+ruff
+black
+isort
+mypy
+```
+
+This avoids Debian externally-managed Python issues and matches the `init.lua` setting:
+
+```lua
+vim.g.python3_host_prog = vim.fn.expand '~/.local/share/nvim/python/venv/bin/python'
+```
+
+---
+
+### Bootstrap-Managed Bashrc Block
+
+The script adds a managed block to:
+
+```text
+~/.bashrc
+```
+
+The block is marked with:
+
+```bash
+# >>> nvim-personal bootstrap >>>
+...
+# <<< nvim-personal bootstrap <<<
+```
+
+It adds clean PATH support for:
+
+```text
+~/.local/bin
+~/.cargo/env
+~/.local/bin/env
+/usr/local/go/bin
+~/go/bin
+```
+
+It does **not** add `/usr/bin/npm` to PATH because PATH entries must be directories.
+
+---
+
+### Post-Bootstrap Validation
+
+After the script finishes, reload the shell environment:
+
+```bash
+source ~/.bashrc
+```
+
+Then open Neovim:
+
+```bash
+nvim
+```
+
+Inside Neovim, run:
+
+```vim
+:ConfigHealth
+:checkhealth
+:Lazy
+:Mason
+:LspInfo
+:TSInstallInfo
+```
+
+Useful shell checks:
+
+```bash
+which nvim
+which git
+which rg
+which fd
+which node
+which npm
+which python3
+which go
+which gopls
+which cargo
+which stylua
+```
+
+Core keymaps to test:
+
+```text
+Ctrl-p      Telescope find files
+Ctrl-g      Telescope live grep
+Ctrl-n      Neo-tree reveal current file
+Space f     Format current file/range
+Space l     Lint current file
+Space d b   Toggle debug breakpoint
+Space g s   Git stage hunk
+```
+
+---
+
+### Bootstrap Troubleshooting
+
+If the script cannot clone with SSH, rerun with HTTPS:
+
+```bash
+./bootstrap.sh --repo-mode https
+```
+
+If apt package installation fails, rerun after fixing apt:
+
+```bash
+sudo apt update
+sudo apt --fix-broken install
+./bootstrap.sh
+```
+
+If Neovim validation fails, open Neovim manually and inspect:
+
+```vim
+:messages
+:Lazy
+:checkhealth
+:ConfigHealth
+```
+
+If Markdown Preview fails after bootstrap:
 
 ```bash
 cd ~/.local/share/nvim/lazy/markdown-preview.nvim
 yarn install
 ```
 
-Then restart Neovim and test:
-
-```vim
-:MarkdownPreview
-```
-
-If `yarn` is missing:
-
-```bash
-sudo npm install -g yarn
-```
-
----
-
-## 14. Verify Health
-
-Run Neovim health checks:
-
-```vim
-:checkhealth
-```
-
-Targeted checks:
-
-```vim
-:checkhealth lazy
-:checkhealth mason
-:checkhealth provider
-:checkhealth telescope
-:checkhealth nvim-treesitter
-```
-
-Common success indicators:
-
-```text
-git found
-curl found
-rg found
-fd found
-node found
-npm found
-python provider OK
-clipboard provider OK
-C compiler found
-```
-
----
-
-## 15. Troubleshooting
-
-### Neo-tree or Lua/hererocks install failures
-
-If a plugin fails while installing `hererocks`, install Lua/readline dependencies:
-
-```bash
-sudo apt install -y lua5.1 liblua5.1-0-dev libreadline-dev luarocks
-```
-
-Then reopen Neovim and run:
-
-```vim
-:Lazy sync
-```
-
-### LSP servers fail to install
-
-Make sure Node and npm exist:
-
-```bash
-which node
-node --version
-which npm
-npm --version
-```
-
-Then install the common npm language servers:
-
-```bash
-sudo npm install -g \
-  pyright \
-  typescript \
-  typescript-language-server \
-  dockerfile-language-server-nodejs \
-  bash-language-server \
-  vscode-langservers-extracted \
-  yaml-language-server
-```
-
-Restart Neovim and run:
-
-```vim
-:LspInfo
-:Mason
-:checkhealth mason
-```
-
-### Treesitter parser compilation fails
-
-Install compiler tooling:
-
-```bash
-sudo apt install -y build-essential gcc g++ make cmake
-```
-
-Then inside Neovim:
-
-```vim
-:TSUpdate
-```
-
-### Telescope live grep does not work
-
-Install `ripgrep`:
-
-```bash
-sudo apt install -y ripgrep
-```
-
-Verify:
-
-```bash
-rg --version
-```
-
-### Telescope file finder does not find files
-
-Install and fix `fd`:
+If `fd` is missing on Debian:
 
 ```bash
 sudo apt install -y fd-find
 mkdir -p ~/.local/bin
 ln -sf "$(which fdfind)" ~/.local/bin/fd
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
+```
+
+If the Python provider check fails:
+
+```bash
+ls ~/.local/share/nvim/python/venv/bin/python
+~/.local/share/nvim/python/venv/bin/python -m pip show pynvim
+```
+
+## 9. Updating an Existing Neovim Instance to This Refactored System
+
+Use this section when a VM already has the old Kickstart-style config and you want to migrate it to the refactored structure.
+
+### 9.1 Back up the existing config
+
+```bash
+cp -a ~/.config/nvim ~/.config/nvim.backup.$(date +%Y%m%d-%H%M%S)
+```
+
+Optional backup of data/cache directories:
+
+```bash
+cp -a ~/.local/share/nvim ~/.local/share/nvim.backup.$(date +%Y%m%d-%H%M%S) 2>/dev/null || true
+cp -a ~/.cache/nvim ~/.cache/nvim.backup.$(date +%Y%m%d-%H%M%S) 2>/dev/null || true
+```
+
+### 9.2 Confirm the desired active structure
+
+The active structure should be:
+
+```text
+~/.config/nvim/init.lua
+~/.config/nvim/lua/health.lua
+~/.config/nvim/lua/vim-options.lua
+~/.config/nvim/lua/plugins/*.lua
+```
+
+Remove old active plugin directories once everything has been migrated:
+
+```bash
+rm -rf ~/.config/nvim/lua/kickstart
+rm -rf ~/.config/nvim/lua/custom
+```
+
+Only do this after confirming the useful files have been migrated.
+
+### 9.3 Confirm `init.lua` only imports the active plugin directory
+
+Check:
+
+```bash
+grep -R "import =" ~/.config/nvim/init.lua
+```
+
+Expected:
+
+```lua
+{ import = 'plugins' },
+```
+
+Not expected:
+
+```lua
+{ import = 'kickstart.plugins' },
+{ import = 'custom.plugins' },
+```
+
+### 9.4 Reset or resync plugins
+
+To use versions pinned by `lazy-lock.json`:
+
+```vim
+:Lazy restore
+```
+
+To install/sync everything currently declared:
+
+```vim
+:Lazy sync
+```
+
+To update plugins to newer versions:
+
+```vim
+:Lazy update
+```
+
+After changing plugin files, restart Neovim:
+
+```vim
+:qa
+```
+
+```bash
+nvim
+```
+
+### 9.5 Validate the migrated instance
+
+Run:
+
+```vim
+:ConfigHealth
+:checkhealth
+:Lazy
+:Mason
+:LspInfo
+:TSInstallInfo
+```
+
+From shell:
+
+```bash
+nvim --headless "+Lazy sync" +qa
+```
+
+If Treesitter changed:
+
+```bash
+nvim --headless "+TSUpdate" +qa
+```
+
+---
+
+## 10. Plugin Summary
+
+| File | Plugin / Purpose |
+|---|---|
+| `autopairs.lua` | `nvim-autopairs`; automatic bracket/quote pairing |
+| `completions.lua` | `nvim-cmp`, `LuaSnip`, completion sources |
+| `dashboard.lua` | `alpha-nvim` dashboard |
+| `debug.lua` | `nvim-dap`, `dap-ui`, Go/Python debugging |
+| `formatting.lua` | `conform.nvim` formatting |
+| `gitsigns.lua` | Git signs and hunk actions |
+| `indent_line.lua` | Indentation guides |
+| `linting.lua` | `nvim-lint` linting |
+| `lsp-config.lua` | Mason and LSP setup |
+| `lualine.lua` | Statusline |
+| `markdown-preview.lua` | Markdown preview |
+| `neotree.lua` | File tree |
+| `nightfox.lua` | Colorscheme |
+| `telescope.lua` | Fuzzy finding |
+| `treesitter.lua` | Syntax parsing, highlighting, textobjects |
+
+---
+
+## 11. Hotkey Quick Reference
+
+This setup uses Space as leader:
+
+```text
+<leader> = Space
+```
+
+So:
+
+```text
+<leader>f = Space, then f
+```
+
+Leader mappings are normal-mode mappings unless otherwise stated. They do not trigger while typing text in insert mode.
+
+---
+
+### General / LSP
+
+Defined in:
+
+```text
+lua/vim-options.lua
+```
+
+| Key | Mode | Action |
+|---|---:|---|
+| `<C-n>` | Normal | Reveal current file in Neo-tree |
+| `<C-k>` | Normal | Show LSP hover documentation |
+| `<C-d>` | Normal | Go to LSP definition |
+| `<C-a>` | Normal / Visual | Show LSP code actions |
+
+Formatting should be handled by `formatting.lua` / conform.nvim, not by raw `vim.lsp.buf.format()` in `vim-options.lua`.
+
+---
+
+### Config Health
+
+Defined through `lua/health.lua` and a user command in `vim-options.lua`.
+
+| Command | Action |
+|---|---|
+| `:ConfigHealth` | Run custom config health check |
+| `:lua require('health').check()` | Run custom config health check manually |
+
+No default hotkey is assigned.
+
+---
+
+### Formatting
+
+Defined in:
+
+```text
+lua/plugins/formatting.lua
+```
+
+| Key | Mode | Action |
+|---|---:|---|
+| `<leader>f` | Normal / Visual | Format current file or selected range with conform.nvim |
+
+Format-on-save is enabled.
+
+Common formatter mapping:
+
+| Filetype | Formatter |
+|---|---|
+| Python | `isort`, then `black` |
+| Lua | `stylua` |
+| Shell | `shfmt` |
+| JavaScript / TypeScript | `prettier` |
+| HTML / CSS / JSON / YAML / Markdown | `prettier` |
+| C / C++ | `clang-format` |
+| Go | `gofmt` |
+| Terraform | `terraform_fmt` |
+
+---
+
+### Linting
+
+Defined in:
+
+```text
+lua/plugins/linting.lua
+```
+
+| Key | Mode | Action |
+|---|---:|---|
+| `<leader>l` | Normal | Trigger linting for current file |
+
+Automatic linting runs on:
+
+```text
+BufEnter
+BufWritePost
+InsertLeave
+```
+
+The automatic lint callback should only run in modifiable buffers:
+
+```lua
+if vim.opt_local.modifiable:get() then
+  lint.try_lint()
+end
+```
+
+Common linter mapping:
+
+| Filetype | Linter |
+|---|---|
+| Python | `pylint` |
+| Shell | `shellcheck` |
+| JavaScript / TypeScript | `eslint_d` |
+| C / C++ | `cpplint` |
+| Go | `golangci-lint` |
+| Dockerfile | `hadolint` |
+| Markdown | `markdownlint` |
+| JSON | `jsonlint` |
+| YAML | `yamllint` |
+| Lua | `luacheck` |
+| Text | `codespell` |
+
+---
+
+### Telescope
+
+Defined in:
+
+```text
+lua/plugins/telescope.lua
+```
+
+| Key | Mode | Action |
+|---|---:|---|
+| `<C-p>` | Normal | Find files |
+| `<C-g>` | Normal | Live grep |
+| `<C-b>` | Normal | List open buffers |
+| `<C-h>` | Normal | Search help tags |
+
+Useful commands:
+
+```vim
+:Telescope find_files
+:Telescope live_grep
+:Telescope buffers
+:Telescope help_tags
+```
+
+---
+
+### Markdown Preview
+
+Defined in:
+
+```text
+lua/plugins/markdown-preview.lua
+lua/vim-options.lua
+```
+
+Recommended keymaps:
+
+| Key | Mode | Action |
+|---|---:|---|
+| `<leader>ms` | Normal | Start Markdown Preview |
+| `<leader>mx` | Normal | Stop Markdown Preview |
+| `<leader>mp` | Normal | Toggle Markdown Preview |
+
+Avoid using `<C-p>` for Markdown Preview because Telescope uses `<C-p>`.
+
+Commands:
+
+```vim
+:MarkdownPreview
+:MarkdownPreviewStop
+:MarkdownPreviewToggle
+```
+
+---
+
+### Neo-tree
+
+Global keymap:
+
+| Key | Mode | Action |
+|---|---:|---|
+| `<C-n>` | Normal | Reveal current file in Neo-tree |
+
+Neo-tree internal mappings while the Neo-tree window is focused:
+
+| Key | Action |
+|---|---|
+| `o` | Open file or directory |
+| `<Enter>` | Open file or directory |
+| `s` | Open in horizontal split |
+| `v` | Open in vertical split |
+| `t` | Open in new tab |
+| `C` | Close node |
+| `z` | Close all nodes |
+| `R` | Refresh |
+| `a` | Add file or directory |
+| `d` | Delete |
+| `r` | Rename |
+| `y` | Copy to clipboard |
+| `x` | Cut to clipboard |
+| `p` | Paste from clipboard |
+| `q` | Close Neo-tree window |
+
+---
+
+### Debugging / DAP
+
+Defined in:
+
+```text
+lua/plugins/debug.lua
+```
+
+| Key | Mode | Action |
+|---|---:|---|
+| `<F5>` | Normal | Debug start / continue |
+| `<F1>` | Normal | Debug step into |
+| `<F2>` | Normal | Debug step over |
+| `<F3>` | Normal | Debug step out |
+| `<leader>db` | Normal | Toggle breakpoint |
+| `<leader>dB` | Normal | Set conditional breakpoint |
+| `<leader>du` | Normal | Toggle DAP UI |
+| `<leader>dr` | Normal | Open DAP REPL |
+| `<leader>dl` | Normal | Run last debug session |
+| `<leader>dt` | Normal | Terminate debug session |
+
+Debug adapter requirements:
+
+```text
+debugpy  -> Python debugging
+delve    -> Go debugging
+```
+
+---
+
+### Git / Gitsigns
+
+Defined in:
+
+```text
+lua/plugins/gitsigns.lua
+```
+
+| Key | Mode | Action |
+|---|---:|---|
+| `]c` | Normal | Jump to next Git change |
+| `[c` | Normal | Jump to previous Git change |
+| `<leader>gs` | Normal | Stage current hunk |
+| `<leader>gr` | Normal | Reset current hunk |
+| `<leader>gs` | Visual | Stage selected hunk |
+| `<leader>gr` | Visual | Reset selected hunk |
+| `<leader>gS` | Normal | Stage entire buffer |
+| `<leader>gR` | Normal | Reset entire buffer |
+| `<leader>gu` | Normal | Undo staged hunk |
+| `<leader>gp` | Normal | Preview hunk |
+| `<leader>gb` | Normal | Blame current line |
+| `<leader>gd` | Normal | Diff against index |
+| `<leader>gD` | Normal | Diff against last commit |
+| `<leader>gtb` | Normal | Toggle current-line blame |
+| `<leader>gtd` | Normal | Toggle deleted lines |
+
+---
+
+### Treesitter Textobjects
+
+Defined in:
+
+```text
+lua/plugins/treesitter.lua
+```
+
+Selection keymaps:
+
+| Key | Mode | Action |
+|---|---:|---|
+| `af` | Visual / Operator-pending | Select outer function |
+| `if` | Visual / Operator-pending | Select inner function |
+| `ac` | Visual / Operator-pending | Select outer class |
+| `ic` | Visual / Operator-pending | Select inner class |
+| `aa` | Visual / Operator-pending | Select outer parameter |
+| `ia` | Visual / Operator-pending | Select inner parameter |
+
+Movement keymaps:
+
+| Key | Mode | Action |
+|---|---:|---|
+| `]f` | Normal | Go to next function start |
+| `]F` | Normal | Go to next function end |
+| `[f` | Normal | Go to previous function start |
+| `[F` | Normal | Go to previous function end |
+| `]c` | Normal | Go to next class start |
+| `]C` | Normal | Go to next class end |
+| `[c` | Normal | Go to previous class start |
+| `[C` | Normal | Go to previous class end |
+
+Note: `]c` and `[c` may overlap conceptually with Gitsigns navigation. If Git hunk navigation takes precedence in Git-tracked files, use the Gitsigns mappings there.
+
+---
+
+### Autopairs
+
+Defined in:
+
+```text
+lua/plugins/autopairs.lua
+```
+
+No hotkeys.
+
+Behavior:
+
+```text
+(  ->  ()
+[  ->  []
+{  ->  {}
+"  ->  ""
+'  ->  ''
+```
+
+It also integrates with `nvim-cmp` so completion confirmation can insert paired characters for functions/methods.
+
+---
+
+### Indent Guides
+
+Defined in:
+
+```text
+lua/plugins/indent_line.lua
+```
+
+No hotkeys.
+
+Behavior:
+
+```text
+Adds indentation guides in normal code buffers.
+Excludes dashboards, Neo-tree, Lazy, Mason, and similar plugin windows.
+```
+
+---
+
+## 12. Updating and Maintaining Components
+
+### Lazy Plugins
+
+Open Lazy:
+
+```vim
+:Lazy
+```
+
+Common commands:
+
+```vim
+:Lazy sync
+:Lazy restore
+:Lazy update
+:Lazy clean
+:Lazy check
+:Lazy log
+```
+
+Use `restore` when you want the versions pinned by `lazy-lock.json`:
+
+```vim
+:Lazy restore
+```
+
+Use `update` when you want to update plugins and refresh `lazy-lock.json`:
+
+```vim
+:Lazy update
+```
+
+Use `sync` after editing plugin specs:
+
+```vim
+:Lazy sync
+```
+
+---
+
+### Mason Tools
+
+Open Mason:
+
+```vim
+:Mason
+```
+
+Update registry/packages:
+
+```vim
+:MasonUpdate
+```
+
+Mason Tool Installer config lives in:
+
+```text
+lua/plugins/lsp-config.lua
+```
+
+Look for:
+
+```lua
+require('mason-tool-installer').setup {
+  ensure_installed = {
+    ...
+  },
+}
+```
+
+Add CLI tools there.
+
+Examples:
+
+```lua
+'black',
+'isort',
+'ruff',
+'stylua',
+'shellcheck',
+'shfmt',
+'prettier',
+'gofumpt',
+'golangci-lint',
+'debugpy',
+'delve',
+```
+
+---
+
+### LSP Servers
+
+LSP server installation and setup live in:
+
+```text
+lua/plugins/lsp-config.lua
+```
+
+Mason LSP installation list:
+
+```lua
+require('mason-lspconfig').setup {
+  ensure_installed = {
+    ...
+  },
+}
+```
+
+Server-specific config lives in the `servers` table:
+
+```lua
+local servers = {
+  lua_ls = {},
+  pyright = {},
+  bashls = {},
+}
 ```
 
 Verify:
 
-```bash
-fd --version
+```vim
+:LspInfo
+:checkhealth lsp
 ```
 
-### Clipboard does not work
+---
 
-For X11:
+### Treesitter
 
-```bash
-sudo apt install -y xclip
+Config lives in:
+
+```text
+lua/plugins/treesitter.lua
 ```
 
-For Wayland:
-
-```bash
-sudo apt install -y wl-clipboard
-```
-
-Then check:
+Update parsers:
 
 ```vim
-:checkhealth provider
+:TSUpdate
 ```
+
+Install a parser:
+
+```vim
+:TSInstall python
+:TSInstall lua
+:TSInstall markdown
+```
+
+View parser status:
+
+```vim
+:TSInstallInfo
+```
+
+Health check:
+
+```vim
+:checkhealth nvim-treesitter
+```
+
+Compiler dependencies:
+
+```bash
+sudo apt install -y build-essential gcc g++ make
+```
+
+---
+
+### Formatters
+
+Config lives in:
+
+```text
+lua/plugins/formatting.lua
+```
+
+Check health:
+
+```vim
+:checkhealth conform
+```
+
+Manual format:
+
+```text
+<leader>f
+```
+
+Verify tools:
+
+```bash
+which stylua
+which black
+which isort
+which prettier
+which shfmt
+which clang-format
+which gofmt
+```
+
+---
+
+### Linters
+
+Config lives in:
+
+```text
+lua/plugins/linting.lua
+```
+
+Manual lint:
+
+```text
+<leader>l
+```
+
+Verify tools:
+
+```bash
+which pylint
+which ruff
+which eslint_d
+which shellcheck
+which cpplint
+which golangci-lint
+which hadolint
+which jsonlint
+which yamllint
+which markdownlint
+which luacheck
+which codespell
+```
+
+---
+
+### Debugging / DAP
+
+Config lives in:
+
+```text
+lua/plugins/debug.lua
+```
+
+Mason-managed adapters:
+
+```text
+debugpy
+delve
+```
+
+Verify Python debug adapter:
+
+```bash
+~/.local/share/nvim/python/venv/bin/python -m debugpy --help
+```
+
+Verify Go debug adapter:
+
+```bash
+which dlv
+```
+
+Open Mason:
+
+```vim
+:Mason
+```
+
+---
+
+### Telescope
+
+Config lives in:
+
+```text
+lua/plugins/telescope.lua
+```
+
+Check health:
+
+```vim
+:checkhealth telescope
+```
+
+Test:
+
+```vim
+:Telescope find_files
+:Telescope live_grep
+:Telescope buffers
+:Telescope help_tags
+```
+
+Required tools:
+
+```bash
+sudo apt install -y ripgrep fd-find
+```
+
+---
+
+### Neo-tree
+
+Config lives in:
+
+```text
+lua/plugins/neotree.lua
+```
+
+Commands:
+
+```vim
+:Neotree
+:Neotree filesystem reveal left
+```
+
+Shortcut:
+
+```text
+<C-n>
+```
+
+If image support causes VM/terminal issues, remove this optional dependency from `neotree.lua`:
+
+```lua
+'3rd/image.nvim',
+```
+
+Then run:
+
+```vim
+:Lazy sync
+```
+
+---
+
+### Markdown Preview
+
+Config lives in:
+
+```text
+lua/plugins/markdown-preview.lua
+```
+
+Commands:
+
+```vim
+:MarkdownPreview
+:MarkdownPreviewStop
+:MarkdownPreviewToggle
+```
+
+If the plugin does not work, manually install its web app dependencies:
+
+```bash
+cd ~/.local/share/nvim/lazy/markdown-preview.nvim
+yarn install
+```
+
+Required packages:
+
+```bash
+sudo apt install -y nodejs npm
+sudo npm install -g yarn
+```
+
+In a VM or headless environment, the browser may not open automatically. The config should echo a preview URL that can be copied into a host browser.
+
+---
+
+### Nightfox / Colorscheme
+
+Config lives in:
+
+```text
+lua/plugins/nightfox.lua
+```
+
+Current colorscheme:
+
+```lua
+vim.cmd.colorscheme 'nightfox'
+```
+
+---
+
+### Lualine
+
+Config lives in:
+
+```text
+lua/plugins/lualine.lua
+```
+
+Recommended theme:
+
+```lua
+theme = 'auto'
+```
+
+This allows lualine to follow the active colorscheme.
+
+---
+
+## 13. Validation Checklist
+
+After setup or major changes, run:
+
+```bash
+nvim --headless "+Lazy sync" +qa
+```
+
+Then open Neovim:
+
+```bash
+nvim
+```
+
+Inside Neovim:
+
+```vim
+:ConfigHealth
+:checkhealth
+:Lazy
+:Mason
+:LspInfo
+:TSInstallInfo
+```
+
+Test core commands:
+
+```vim
+:Telescope find_files
+:Telescope live_grep
+:Neotree filesystem reveal left
+:MarkdownPreview
+```
+
+Test core mappings:
+
+```text
+<C-p>       Telescope find files
+<C-g>       Telescope live grep
+<C-n>       Neo-tree reveal left
+<leader>f   Format with conform
+<leader>l   Lint current file
+<leader>db  Toggle debug breakpoint
+<leader>gs  Git stage hunk
+```
+
+---
+
+## 14. Troubleshooting
 
 ### Neovim opens without this config
 
-Check that the config is in the correct location:
+Check:
 
 ```bash
 ls ~/.config/nvim/init.lua
 ```
 
-If that file does not exist, Neovim is not loading this config.
-
 ### Plugin files exist but do not load
 
-Check that `init.lua` imports the right plugin directories.
-
-For this structure, the lazy setup should import some combination of:
+Confirm `init.lua` imports only:
 
 ```lua
 { import = 'plugins' },
-{ import = 'kickstart.plugins' },
-{ import = 'custom.plugins' },
 ```
 
-Remember the mapping:
+### Lazy errors
 
-```text
-lua/plugins/telescope.lua          -> import 'plugins'
-lua/kickstart/plugins/gitsigns.lua -> import 'kickstart.plugins'
-lua/custom/plugins/init.lua        -> import 'custom.plugins'
-```
-
----
-
-## 16. Full Bootstrap Script
-
-This is the quick version for a new VM.
-
-Review before running.
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-sudo apt update
-
-sudo apt install -y \
-  git curl wget unzip tar gzip xz-utils ca-certificates gnupg \
-  software-properties-common \
-  build-essential gcc g++ make cmake pkg-config \
-  ripgrep fd-find jq tree \
-  xclip wl-clipboard \
-  python3 python3-pip python3-venv python3-dev \
-  nodejs npm \
-  lua5.1 liblua5.1-0-dev libreadline-dev luarocks \
-  ruby-full openjdk-17-jdk clangd shellcheck codespell
-
-mkdir -p "$HOME/.local/bin"
-
-if command -v fdfind >/dev/null 2>&1; then
-  ln -sf "$(command -v fdfind)" "$HOME/.local/bin/fd"
-fi
-
-grep -qxF 'export PATH="$HOME/.local/bin:$PATH"' "$HOME/.bashrc" || \
-  echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
-
-mkdir -p "$HOME/.local/share/nvim/python"
-python3 -m venv "$HOME/.local/share/nvim/python/venv"
-
-"$HOME/.local/share/nvim/python/venv/bin/python" -m pip install --upgrade pip
-"$HOME/.local/share/nvim/python/venv/bin/python" -m pip install --upgrade \
-  pynvim \
-  debugpy \
-  ruff \
-  black \
-  isort \
-  mypy
-
-sudo npm install -g \
-  dockerfile-language-server-nodejs \
-  pyright \
-  typescript \
-  typescript-language-server \
-  bash-language-server \
-  vscode-langservers-extracted \
-  yaml-language-server \
-  markdownlint-cli \
-  prettier \
-  yarn
-
-sudo gem install bundler ruby-lsp
-
-echo
-echo "Base dependencies installed."
-echo "Next steps:"
-echo "1. Install/update Neovim if needed."
-echo "2. Clone this repo to ~/.config/nvim."
-echo "3. Start nvim."
-echo "4. Run :Lazy restore, then :Lazy sync."
-echo "5. Run :checkhealth."
-```
-
----
-
-## 17. Post-Install Checklist
-
-After setup:
+Run:
 
 ```vim
-:Lazy restore
+:Lazy
 :Lazy sync
-:Mason
-:checkhealth
+:messages
 ```
 
-Then verify from the shell:
+### Python provider errors
+
+Check:
 
 ```bash
-nvim --version
-git --version
-rg --version
-fd --version
-node --version
-npm --version
-python3 --version
-go version
-rustc --version
-stylua --version
-ruby --version
-java --version
-clangd --version
+ls ~/.local/share/nvim/python/venv/bin/python
+~/.local/share/nvim/python/venv/bin/python -m pip show pynvim
 ```
 
-Not every language runtime is mandatory. Install the ones you actually use.
+Inside Neovim:
 
-For a minimal Python/Lua/Markdown-focused VM, the most important pieces are:
+```vim
+:checkhealth provider
+```
+
+### Telescope live grep fails
+
+Install ripgrep:
+
+```bash
+sudo apt install -y ripgrep
+```
+
+### Telescope file search fails or is slow
+
+Fix `fd`:
+
+```bash
+sudo apt install -y fd-find
+mkdir -p ~/.local/bin
+ln -sf "$(which fdfind)" ~/.local/bin/fd
+```
+
+### Treesitter parser build fails
+
+Install compiler tooling:
+
+```bash
+sudo apt install -y build-essential gcc g++ make
+```
+
+Then:
+
+```vim
+:TSUpdate
+```
+
+### Markdown Preview does not open
+
+Install Node/Yarn tooling:
+
+```bash
+sudo apt install -y nodejs npm
+sudo npm install -g yarn
+```
+
+Then:
+
+```bash
+cd ~/.local/share/nvim/lazy/markdown-preview.nvim
+yarn install
+```
+
+### Neo-tree image errors in VM
+
+Remove optional image support:
+
+```lua
+'3rd/image.nvim',
+```
+
+Then:
+
+```vim
+:Lazy sync
+```
+
+### Gitsigns does not show signs
+
+Confirm the file is inside a Git repository:
+
+```bash
+git status
+```
+
+Confirm Git exists:
+
+```bash
+which git
+```
+
+### DAP / Debugging does not work
+
+Check Mason:
+
+```vim
+:Mason
+```
+
+Verify Python debugpy:
+
+```bash
+~/.local/share/nvim/python/venv/bin/python -m debugpy --help
+```
+
+Verify Go Delve:
+
+```bash
+which dlv
+```
+
+---
+
+## 15. Quick Command Reference
+
+```vim
+:ConfigHealth       Run custom health checks
+:checkhealth        Run Neovim/plugin health checks
+:Lazy               Open Lazy plugin manager
+:Lazy sync          Install/sync plugins
+:Lazy restore       Restore locked plugin versions
+:Lazy update        Update plugins
+:Mason              Open Mason tool manager
+:MasonUpdate        Update Mason registry/packages
+:LspInfo            Show attached LSP clients
+:TSUpdate           Update Treesitter parsers
+:TSInstallInfo      Show Treesitter parser status
+:Telescope          Open Telescope picker list
+:Neotree            Open Neo-tree
+:MarkdownPreview    Start Markdown Preview
+```
+
+---
+
+Bootstrap from repo root:
+
+```bash
+chmod +x bootstrap.sh
+./bootstrap.sh
+```
+
+## 16. Minimal Final Smoke Test
+
+Run this after any fresh install or major refactor:
+
+```bash
+source ~/.bashrc
+
+nvim --headless "+Lazy sync" +qa
+nvim --headless "+TSUpdate" +qa
+```
+
+Then inside Neovim:
+
+```vim
+:ConfigHealth
+:checkhealth
+:Lazy
+:Mason
+:LspInfo
+:TSInstallInfo
+```
+
+Open a few test files:
+
+```bash
+nvim README.md
+nvim test.py
+nvim test.lua
+nvim test.sh
+```
+
+Confirm:
 
 ```text
-Neovim
-git
-curl
-unzip
-ripgrep
-fd
-gcc/build-essential
-python3
-python3-venv
-Neovim Python provider venv with pynvim
-nodejs/npm
-lua-language-server
-stylua
-pyright
-ruff
-black
-marksman
+Telescope opens with Ctrl+p
+Neo-tree opens/reveals with Ctrl+n
+Formatting works with Space f
+Linting works with Space l
+Git signs appear inside a Git repo
+DAP breakpoint toggles with Space d b
+Markdown preview toggles with Space m p
 ```
+
+If those work, the build is operational.

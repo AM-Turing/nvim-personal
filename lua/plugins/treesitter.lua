@@ -1,28 +1,83 @@
 return {
-  -- Treesitter Plugin
-      "nvim-treesitter/nvim-treesitter",
-      build = ':TSUpdate',  -- Ensure parsers are installed
-      config = function()
-        require'nvim-treesitter.configs'.setup {
-          ensure_installed = { "lua", "python", "javascript", "go", "c", "html", "css", "rust", "zig", "typescript", "json", "bash" },  -- Install wanted parsers
-          sync_install = false,  -- Install parsers synchronously (recommended: false)
-          auto_install = true,  -- Automatically install missing parsers
-          highlight = {
-            enable = true,  -- Enable Tree-sitter highlighting
-            additional_vim_regex_highlighting = false,  -- Disable regex highlighting (recommended)
+  'nvim-treesitter/nvim-treesitter',
+  build = ':TSUpdate',
+  dependencies = {
+    'nvim-treesitter/nvim-treesitter-textobjects',
+  },
+  config = function()
+    require('nvim-treesitter.configs').setup {
+      ensure_installed = {
+        'bash',
+        'c',
+        'css',
+        'go',
+        'html',
+        'javascript',
+        'json',
+        'lua',
+        'markdown',
+        'markdown_inline',
+        'python',
+        'rust',
+        'typescript',
+        'vim',
+        'vimdoc',
+        'yaml',
+        'zig',
+      },
+
+      sync_install = false,
+      auto_install = true,
+
+      highlight = {
+        enable = true,
+        additional_vim_regex_highlighting = false,
+      },
+
+      indent = {
+        enable = true,
+      },
+
+      textobjects = {
+        select = {
+          enable = true,
+          lookahead = true,
+
+          keymaps = {
+            ['af'] = '@function.outer',
+            ['if'] = '@function.inner',
+            ['ac'] = '@class.outer',
+            ['ic'] = '@class.inner',
+            ['aa'] = '@parameter.outer',
+            ['ia'] = '@parameter.inner',
           },
-          indent = {
-            enable = true,  -- Enable Tree-sitter indentation
+        },
+
+        move = {
+          enable = true,
+          set_jumps = true,
+
+          goto_next_start = {
+            [']f'] = '@function.outer',
+            [']c'] = '@class.outer',
           },
-          textobjects = {
-            enable = true,  -- Enable text objects for navigating code
-            select = {
-              enable = true,
-              lookahead = true,  -- Automatically jump to text objects
-            },
+
+          goto_next_end = {
+            [']F'] = '@function.outer',
+            [']C'] = '@class.outer',
           },
-        }
-        -- Optional: You can manually enable Tree-sitter features for specific languages
-        -- require'nvim-treesitter.install'.prefer_git = true  -- Prefer GitHub over the official repository for faster parser installation
-    end
-} 
+
+          goto_previous_start = {
+            ['[f'] = '@function.outer',
+            ['[c'] = '@class.outer',
+          },
+
+          goto_previous_end = {
+            ['[F'] = '@function.outer',
+            ['[C'] = '@class.outer',
+          },
+        },
+      },
+    }
+  end,
+}

@@ -35,12 +35,12 @@ return {
         timeout_ms = 500,
       },
     }
-    vim.keymap.set({ 'n', 'v' }, '<C-mp>', function()
+    vim.keymap.set({ 'n', 'v' }, '<leader>f', function()
       conform.format {
-        lsp_fallback = true,
-        async = false,
-        timeout_ms = 500,
-      }
-    end, { desc = 'Format file or range (in visual mode)' })
+      lsp_fallback = true,
+      async = false,
+      timeout_ms = 1000,
+    }
+  end, { desc = 'Format file or selected range' })
   end,
 }

@@ -1,3 +1,6 @@
+-- Set space as the <leader> --
+vim.g.mapleader = ' '
+vim.g.maplocalleader = ' '
 -- Set the Python provider used by Neovim.
 -- This should point to the dedicated Neovim Python venv created during setup.
 vim.g.python3_host_prog = vim.fn.expand '~/.local/share/nvim/python/venv/bin/python'
