@@ -336,6 +336,273 @@ fd       -> $HOME/.local/bin/fd
 
 ---
 
+---
+
+## Update Script Usage
+
+This repository also includes a top-level update script:
+
+```text
+update.sh
+```
+
+The update script is for updating **internal/runtime components** based on the Neovim configuration already installed locally.
+
+It intentionally does **not** pull the latest version of this GitHub repository.
+
+That means it does not run:
+
+```bash
+git pull
+```
+
+It only updates components such as:
+
+```text
+Modern Neovim binary
+Neovim Python provider venv packages
+Global npm tools
+Rust/stylua
+Go gopls
+Ruby gems
+Lazy-managed plugins from local lua/plugins/*.lua
+Mason registry/packages
+Treesitter parsers
+Markdown Preview app dependencies
+ConfigHealth/checkhealth validation
+```
+
+---
+
+### Install the Update Script
+
+From the top-level repo directory:
+
+```bash
+chmod +x update.sh
+```
+
+---
+
+### First-Run Recommendation After Bootstrap
+
+On a brand-new VM, use the lockfile-safe mode first:
+
+```bash
+./update.sh --restore-lock
+```
+
+This uses:
+
+```vim
+:Lazy restore
+```
+
+instead of:
+
+```vim
+:Lazy update
+```
+
+That means it restores plugin versions from the committed:
+
+```text
+lazy-lock.json
+```
+
+This is the safest choice before your first normal Neovim launch because it avoids unexpectedly rewriting the lockfile.
+
+Recommended fresh setup flow:
+
+```bash
+./bootstrap.sh
+./update.sh --restore-lock
+nvim
+```
+
+---
+
+### Routine Maintenance Updates
+
+For normal maintenance later, run:
+
+```bash
+./update.sh
+```
+
+By default, this updates Lazy plugins and may rewrite:
+
+```text
+lazy-lock.json
+```
+
+After running it, review the lockfile:
+
+```bash
+cd ~/.config/nvim
+
+git status
+git diff lazy-lock.json
+```
+
+If everything works and you want to keep the new plugin versions:
+
+```bash
+git add lazy-lock.json
+git commit -m "Update Neovim plugin lockfile"
+```
+
+---
+
+### Important Lazy Lockfile Behavior
+
+`update.sh` can change `lazy-lock.json` when it runs Lazy plugin updates.
+
+Use this when you want reproducible versions from the existing lockfile:
+
+```bash
+./update.sh --restore-lock
+```
+
+Use this when you intentionally want to update plugin versions:
+
+```bash
+./update.sh
+```
+
+If you want the safest long-term workflow, use:
+
+```text
+Fresh install:
+  ./update.sh --restore-lock
+
+Routine update:
+  ./update.sh
+
+After routine update:
+  test Neovim
+  review lazy-lock.json
+  commit lazy-lock.json if everything works
+```
+
+---
+
+### Update Script Options
+
+```bash
+./update.sh --help
+```
+
+Common options:
+
+| Option | Purpose |
+|---|---|
+| `--restore-lock` | Restore plugin versions from `lazy-lock.json` instead of updating them |
+| `--yes` | Use defaults where possible |
+| `--skip-neovim` | Do not update the official Neovim tarball |
+| `--skip-python` | Do not update the Neovim Python provider venv |
+| `--skip-node` | Do not update global npm tools |
+| `--skip-rust` | Do not update Rust/stylua |
+| `--skip-go` | Do not update Go/gopls |
+| `--skip-gem` | Do not update Ruby gems |
+| `--skip-lazy` | Do not update Lazy plugins |
+| `--skip-mason` | Do not update Mason registry/packages |
+| `--skip-treesitter` | Do not update Treesitter parsers |
+| `--skip-markdown-preview` | Do not update Markdown Preview app dependencies |
+| `--skip-validation` | Do not run validation checks |
+
+Examples:
+
+```bash
+./update.sh --restore-lock
+```
+
+```bash
+./update.sh --skip-node --skip-gem
+```
+
+```bash
+./update.sh --skip-validation
+```
+
+---
+
+### Post-Update Validation
+
+After running `update.sh`, open Neovim:
+
+```bash
+nvim
+```
+
+Then run:
+
+```vim
+:ConfigHealth
+:checkhealth
+:Lazy
+:Mason
+:LspInfo
+:TSInstallInfo
+```
+
+Test the core mappings:
+
+```text
+Ctrl-p      Telescope find files
+Ctrl-g      Telescope live grep
+Ctrl-n      Neo-tree reveal current file
+Space f     Format current file/range
+Space l     Lint current file
+Space d b   Toggle debug breakpoint
+Space g s   Git stage hunk
+```
+
+---
+
+### Update Script Troubleshooting
+
+If plugin updates fail, open Neovim and inspect:
+
+```vim
+:Lazy
+:messages
+```
+
+If Mason updates fail:
+
+```vim
+:Mason
+:MasonUpdate
+```
+
+If Treesitter updates fail:
+
+```vim
+:TSUpdate
+:checkhealth nvim-treesitter
+```
+
+If the active Neovim binary is wrong:
+
+```bash
+which nvim
+nvim --version
+```
+
+Expected path:
+
+```text
+~/.local/bin/nvim
+```
+
+If it still points to `/usr/bin/nvim`, reload your shell:
+
+```bash
+source ~/.bashrc
+hash -r
+```
+
 ## Modern Neovim Requirement
 
 This configuration uses `lazy.nvim`, which requires a newer Neovim than the version shipped by some Debian releases.
