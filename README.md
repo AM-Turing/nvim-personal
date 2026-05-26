@@ -2,7 +2,10 @@
 
 This README documents this refactored Neovim configuration, how to install it on a fresh Debian-based VM, how to update an existing Neovim instance that already uses this layout, and how to maintain the major components. This README was created by ChatGPT. Yes, I am lazy. Sorry, not sorry.
 
-Use the bootstrap.sh to build out this config. Instructions and details are below. 
+<b>Use the `bootstrap.sh` to build out this config.</b> Instructions and details are below. 
+
+<b>Hotkeys are summarized in HOTKEYS.md</b>
+
 
 The configuration is based on a cleaned-up fork of Kickstart.nvim, but the active layout has been simplified so that all active plugin specs live in one directory:
 
