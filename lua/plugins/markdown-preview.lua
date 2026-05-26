@@ -1,10 +1,16 @@
 return {
   'iamcco/markdown-preview.nvim',
+  cmd = {
+    'MarkdownPreview',
+    'MarkdownPreviewStop',
+    'MarkdownPreviewToggle',
+  },
   ft = {
     'markdown',
   },
-  build = function()
-    vim.fn['mkdp#util#install']()
+  build = 'cd app && yarn install',
+  init = function()
+    vim.g.mkdp_filetypes = { 'markdown' }
   end,
   config = function()
     vim.g.mkdp_auto_start = 0
@@ -16,6 +22,7 @@ return {
     vim.g.mkdp_browser = ''
     vim.g.mkdp_echo_preview_url = 1
     vim.g.mkdp_browserfunc = ''
+
     vim.g.mkdp_preview_options = {
       mkit = {},
       katex = {},
@@ -30,10 +37,10 @@ return {
       disable_filename = 0,
       toc = {},
     }
+
     vim.g.mkdp_markdown_css = ''
     vim.g.mkdp_highlight_css = ''
     vim.g.mkdp_port = ''
     vim.g.mkdp_page_title = '「${name}」'
-    vim.g.mkdp_filetypes = { 'markdown' }
   end,
 }
