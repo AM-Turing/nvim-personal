@@ -20,6 +20,8 @@ Leader mappings only trigger in the mode where they are defined. They do not tri
 
 ## General / LSP
 
+<b>Note:</b> `C-n` translates to ctrl+n, this applies to all instances of C-<letter>.
+
 Managed in:
 
 ```text
@@ -115,12 +117,12 @@ Related commands:
 
 ---
 
-## Markdown Preview
+## Markdown Preview via Vivify
 
 Managed in:
 
 ```text
-lua/plugins/markdown-preview.lua
+lua/plugins/vivify.lua
 lua/vim-options.lua
 ```
 
@@ -128,16 +130,13 @@ Recommended mappings:
 
 | Key | Mode | Action |
 |---|---:|---|
-| `<leader>ms` | Normal | Start Markdown Preview |
-| `<leader>mx` | Normal | Stop Markdown Preview |
 | `<leader>mp` | Normal | Toggle Markdown Preview |
 
 Related commands:
 
 ```vim
 :MarkdownPreview
-:MarkdownPreviewStop
-:MarkdownPreviewToggle
+
 ```
 
 ---
