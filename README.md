@@ -1,6 +1,8 @@
 # Neovim VM Setup Guide
 
-This README documents this refactored Neovim configuration, how to install it on a fresh Debian-based VM, how to update an existing Neovim instance that already uses this layout, and how to maintain the major components.
+This README documents this refactored Neovim configuration, how to install it on a fresh Debian-based VM, how to update an existing Neovim instance that already uses this layout, and how to maintain the major components. This README was created by ChatGPT. Yes, I am lazy. Sorry, not sorry.
+
+Use the bootstrap.sh to build out this config. Instructions and details are below. 
 
 The configuration is based on a cleaned-up fork of Kickstart.nvim, but the active layout has been simplified so that all active plugin specs live in one directory:
 
@@ -42,13 +44,6 @@ Expected layout:
 │   │   └── treesitter.lua
 │   └── vim-options.lua
 └── README.md
-```
-
-There should no longer be active plugin specs in:
-
-```text
-lua/kickstart/plugins/
-lua/custom/plugins/
 ```
 
 The active plugin import should be:
@@ -204,16 +199,11 @@ require('lazy').setup {
 require 'vim-options'
 ```
 
-Do not import deleted or archived plugin folders:
-
-```lua
-{ import = 'kickstart.plugins' }
-{ import = 'custom.plugins' }
-```
-
 ---
 
 ## 4. Fresh Debian VM Setup
+
+Note: `bootstrap.sh` will do this for you, but this is informational in case it messes up. 
 
 Run this first on a fresh Debian/Ubuntu VM.
 
@@ -262,7 +252,9 @@ sudo apt install -y \
 
 ### Fix `fd` on Debian/Ubuntu
 
-Debian usually installs `fd` as `fdfind`.
+Note: `bootstrap.sh` will do this for you, but this is informational in case it messes up. 
+
+Debian usually installs `fd` as `fdfind`. 
 
 ```bash
 mkdir -p ~/.local/bin
@@ -279,6 +271,8 @@ fd --version
 ---
 
 ## 5. Bashrc / PATH Setup
+
+Note: `bootstrap.sh` will do this for you, but this is informational in case it messes up. 
 
 Use clean directory-based PATH entries.
 
@@ -303,19 +297,6 @@ export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
 ```
 
 Do **not** add executable files directly to `PATH`.
-
-Wrong:
-
-```bash
-export PATH="$PATH:/usr/bin/npm"
-```
-
-Correct:
-
-```bash
-# /usr/bin is already normally in PATH.
-which npm
-```
 
 Verify after editing:
 
@@ -350,6 +331,8 @@ fd       -> $HOME/.local/bin/fd
 ---
 
 ## Modern Neovim Requirement
+
+Note: `bootstrap.sh` will do this for you, but this is informational in case it messes up. 
 
 This configuration uses `lazy.nvim`, which requires a newer Neovim than the version shipped by some Debian releases.
 
@@ -1429,8 +1412,6 @@ Avoid using `<C-p>` for Vivify because Telescope uses `<C-p>`.
 Commands:
 
 ```vim
-:Vivify
-:Vivify
 :Vivify
 ```
 
