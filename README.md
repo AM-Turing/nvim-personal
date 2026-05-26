@@ -2,7 +2,7 @@
 
 This README documents this refactored Neovim configuration, how to install it on a fresh Debian-based VM, how to update an existing Neovim instance that already uses this layout, and how to maintain the major components.
 
-The active layout has been simplified so that all plugin specs live in one directory:
+The configuration is based on a cleaned-up fork of Kickstart.nvim, but the active layout has been simplified so that all active plugin specs live in one directory:
 
 ```text
 ~/.config/nvim/lua/plugins/
@@ -17,6 +17,7 @@ Expected layout:
 ```text
 .
 ├── doc
+│   ├── kickstart.txt
 │   └── tags
 ├── init.lua
 ├── lazy-lock.json
@@ -34,7 +35,7 @@ Expected layout:
 │   │   ├── linting.lua
 │   │   ├── lsp-config.lua
 │   │   ├── lualine.lua
-│   │   ├── markdown-preview.lua
+│   │   ├── vivify.lua
 │   │   ├── neotree.lua
 │   │   ├── nightfox.lua
 │   │   ├── telescope.lua
@@ -43,6 +44,12 @@ Expected layout:
 └── README.md
 ```
 
+There should no longer be active plugin specs in:
+
+```text
+lua/kickstart/plugins/
+lua/custom/plugins/
+```
 
 The active plugin import should be:
 
@@ -139,7 +146,7 @@ lua/plugins/nightfox.lua
 lua/plugins/lualine.lua
   Statusline
 
-lua/plugins/markdown-preview.lua
+lua/plugins/vivify.lua
   Markdown preview behavior
 
 lua/plugins/dashboard.lua
@@ -197,6 +204,12 @@ require('lazy').setup {
 require 'vim-options'
 ```
 
+Do not import deleted or archived plugin folders:
+
+```lua
+{ import = 'kickstart.plugins' }
+{ import = 'custom.plugins' }
+```
 
 ---
 
@@ -336,273 +349,6 @@ fd       -> $HOME/.local/bin/fd
 
 ---
 
----
-
-## Update Script Usage
-
-This repository also includes a top-level update script:
-
-```text
-update.sh
-```
-
-The update script is for updating **internal/runtime components** based on the Neovim configuration already installed locally.
-
-It intentionally does **not** pull the latest version of this GitHub repository.
-
-That means it does not run:
-
-```bash
-git pull
-```
-
-It only updates components such as:
-
-```text
-Modern Neovim binary
-Neovim Python provider venv packages
-Global npm tools
-Rust/stylua
-Go gopls
-Ruby gems
-Lazy-managed plugins from local lua/plugins/*.lua
-Mason registry/packages
-Treesitter parsers
-Markdown Preview app dependencies
-ConfigHealth/checkhealth validation
-```
-
----
-
-### Install the Update Script
-
-From the top-level repo directory:
-
-```bash
-chmod +x update.sh
-```
-
----
-
-### First-Run Recommendation After Bootstrap
-
-On a brand-new VM, use the lockfile-safe mode first:
-
-```bash
-./update.sh --restore-lock
-```
-
-This uses:
-
-```vim
-:Lazy restore
-```
-
-instead of:
-
-```vim
-:Lazy update
-```
-
-That means it restores plugin versions from the committed:
-
-```text
-lazy-lock.json
-```
-
-This is the safest choice before your first normal Neovim launch because it avoids unexpectedly rewriting the lockfile.
-
-Recommended fresh setup flow:
-
-```bash
-./bootstrap.sh
-./update.sh --restore-lock
-nvim
-```
-
----
-
-### Routine Maintenance Updates
-
-For normal maintenance later, run:
-
-```bash
-./update.sh
-```
-
-By default, this updates Lazy plugins and may rewrite:
-
-```text
-lazy-lock.json
-```
-
-After running it, review the lockfile:
-
-```bash
-cd ~/.config/nvim
-
-git status
-git diff lazy-lock.json
-```
-
-If everything works and you want to keep the new plugin versions:
-
-```bash
-git add lazy-lock.json
-git commit -m "Update Neovim plugin lockfile"
-```
-
----
-
-### Important Lazy Lockfile Behavior
-
-`update.sh` can change `lazy-lock.json` when it runs Lazy plugin updates.
-
-Use this when you want reproducible versions from the existing lockfile:
-
-```bash
-./update.sh --restore-lock
-```
-
-Use this when you intentionally want to update plugin versions:
-
-```bash
-./update.sh
-```
-
-If you want the safest long-term workflow, use:
-
-```text
-Fresh install:
-  ./update.sh --restore-lock
-
-Routine update:
-  ./update.sh
-
-After routine update:
-  test Neovim
-  review lazy-lock.json
-  commit lazy-lock.json if everything works
-```
-
----
-
-### Update Script Options
-
-```bash
-./update.sh --help
-```
-
-Common options:
-
-| Option | Purpose |
-|---|---|
-| `--restore-lock` | Restore plugin versions from `lazy-lock.json` instead of updating them |
-| `--yes` | Use defaults where possible |
-| `--skip-neovim` | Do not update the official Neovim tarball |
-| `--skip-python` | Do not update the Neovim Python provider venv |
-| `--skip-node` | Do not update global npm tools |
-| `--skip-rust` | Do not update Rust/stylua |
-| `--skip-go` | Do not update Go/gopls |
-| `--skip-gem` | Do not update Ruby gems |
-| `--skip-lazy` | Do not update Lazy plugins |
-| `--skip-mason` | Do not update Mason registry/packages |
-| `--skip-treesitter` | Do not update Treesitter parsers |
-| `--skip-markdown-preview` | Do not update Markdown Preview app dependencies |
-| `--skip-validation` | Do not run validation checks |
-
-Examples:
-
-```bash
-./update.sh --restore-lock
-```
-
-```bash
-./update.sh --skip-node --skip-gem
-```
-
-```bash
-./update.sh --skip-validation
-```
-
----
-
-### Post-Update Validation
-
-After running `update.sh`, open Neovim:
-
-```bash
-nvim
-```
-
-Then run:
-
-```vim
-:ConfigHealth
-:checkhealth
-:Lazy
-:Mason
-:LspInfo
-:TSInstallInfo
-```
-
-Test the core mappings:
-
-```text
-Ctrl-p      Telescope find files
-Ctrl-g      Telescope live grep
-Ctrl-n      Neo-tree reveal current file
-Space f     Format current file/range
-Space l     Lint current file
-Space d b   Toggle debug breakpoint
-Space g s   Git stage hunk
-```
-
----
-
-### Update Script Troubleshooting
-
-If plugin updates fail, open Neovim and inspect:
-
-```vim
-:Lazy
-:messages
-```
-
-If Mason updates fail:
-
-```vim
-:Mason
-:MasonUpdate
-```
-
-If Treesitter updates fail:
-
-```vim
-:TSUpdate
-:checkhealth nvim-treesitter
-```
-
-If the active Neovim binary is wrong:
-
-```bash
-which nvim
-nvim --version
-```
-
-Expected path:
-
-```text
-~/.local/bin/nvim
-```
-
-If it still points to `/usr/bin/nvim`, reload your shell:
-
-```bash
-source ~/.bashrc
-hash -r
-```
-
 ## Modern Neovim Requirement
 
 This configuration uses `lazy.nvim`, which requires a newer Neovim than the version shipped by some Debian releases.
@@ -687,6 +433,162 @@ Then rerun plugin setup:
 
 ```bash
 nvim --headless "+Lazy sync" +qa
+```
+
+---
+
+---
+
+## Nerd Font / Terminal Font Setup
+
+This configuration uses glyphs and icons from plugins such as:
+
+```text
+nvim-web-devicons
+neo-tree.nvim
+alpha-nvim
+lualine.nvim
+```
+
+For those symbols to render correctly, the terminal must use a Nerd Font.
+
+The bootstrap script installs JetBrainsMono Nerd Font into:
+
+```text
+~/.local/share/fonts/JetBrainsMonoNerdFont/
+```
+
+It downloads the font archive from:
+
+```text
+https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip
+```
+
+and refreshes the user font cache with:
+
+```bash
+fc-cache -fv ~/.local/share/fonts
+```
+
+Verify the font is installed:
+
+```bash
+fc-list | grep -i "JetBrains.*Nerd"
+```
+
+### GNOME Terminal Manual Step
+
+Installing the font files is not enough. GNOME Terminal must be told to use the Nerd Font.
+
+Open:
+
+```text
+GNOME Terminal → Preferences → your active profile → Text
+```
+
+Then:
+
+```text
+Enable Custom font
+Select JetBrainsMono Nerd Font or JetBrainsMono Nerd Font Mono
+Close and reopen the terminal
+```
+
+If icons look like boxes, random symbols, or broken characters, the terminal profile is probably not using the Nerd Font yet.
+
+### Bootstrap skip flag
+
+To skip Nerd Font installation:
+
+```bash
+./bootstrap.sh --skip-nerd-font-install
+```
+
+## Vivify Markdown Preview Setup
+
+This config uses Vivify for Markdown/browser preview.
+
+Vivify consists of two binaries:
+
+```text
+viv
+vivify-server
+```
+
+For this setup, both should be installed into:
+
+```text
+~/.local/bin/
+```
+
+The bootstrap script installs Vivify automatically from:
+
+```text
+https://github.com/jannis-baum/Vivify/releases/download/v0.14.0/vivify-linux.tar.gz
+```
+
+Manual install:
+
+```bash
+mkdir -p ~/tools/vivify ~/.local/bin
+cd ~/tools/vivify
+
+curl -fLO https://github.com/jannis-baum/Vivify/releases/download/v0.14.0/vivify-linux.tar.gz
+
+rm -rf extracted
+mkdir -p extracted
+
+tar xzf vivify-linux.tar.gz -C extracted
+
+find extracted -type f -name viv -exec install -m 0755 {} ~/.local/bin/viv \;
+find extracted -type f -name vivify-server -exec install -m 0755 {} ~/.local/bin/vivify-server \;
+```
+
+Verify:
+
+```bash
+which viv
+which vivify-server
+viv --help
+vivify-server --help
+```
+
+Neovim plugin:
+
+```text
+lua/plugins/vivify.lua
+```
+
+Keymap:
+
+```text
+<leader>mp = Open current Markdown buffer in Vivify
+```
+
+Command:
+
+```vim
+:Vivify
+```
+
+Test:
+
+```bash
+nvim README.md
+```
+
+Inside Neovim:
+
+```vim
+:set filetype?
+:Vivify
+:messages
+```
+
+Expected filetype:
+
+```text
+filetype=markdown
 ```
 
 ## 6. Python Provider Setup for Debian
@@ -869,6 +771,8 @@ Clones this repo from GitHub using SSH or HTTPS
 Installs Debian/Ubuntu apt dependencies
 Installs a modern official Neovim release into ~/tools/neovim
 Symlinks the modern nvim binary into ~/.local/bin/nvim
+Downloads Vivify v0.14.0 and installs viv/vivify-server into ~/.local/bin
+Installs JetBrainsMono Nerd Font into ~/.local/share/fonts
 Creates/updates shell PATH helpers in ~/.bashrc
 Creates the Debian-safe Neovim Python provider venv
 Installs Python tooling into the Neovim provider venv
@@ -1033,6 +937,7 @@ Use these when you want a smaller or faster setup.
 ```bash
 ./bootstrap.sh --skip-apt
 ./bootstrap.sh --skip-neovim-install
+./bootstrap.sh --skip-vivify-install
 ./bootstrap.sh --skip-node-globals
 ./bootstrap.sh --skip-rust
 ./bootstrap.sh --skip-go
@@ -1046,6 +951,7 @@ Flag meanings:
 |---|---|
 | `--skip-apt` | Do not install apt packages |
 | `--skip-neovim-install` | Do not install the official modern Neovim release tarball |
+| `--skip-vivify-install` | Do not install Vivify Markdown preview binaries |
 | `--skip-node-globals` | Do not install global npm tools |
 | `--skip-rust` | Do not install Rust/stylua through cargo |
 | `--skip-go` | Do not install Go tools such as `gopls` |
@@ -1191,10 +1097,10 @@ If Neovim validation fails, open Neovim manually and inspect:
 :ConfigHealth
 ```
 
-If Markdown Preview fails after bootstrap:
+If Vivify fails after bootstrap:
 
 ```bash
-cd ~/.local/share/nvim/lazy/markdown-preview.nvim
+cd ~/.local/share/nvim/lazy/vivify.vim
 yarn install
 ```
 
@@ -1214,6 +1120,8 @@ ls ~/.local/share/nvim/python/venv/bin/python
 ```
 
 ## 9. Updating an Existing Neovim Instance to This Refactored System
+
+Use this section when a VM already has the old Kickstart-style config and you want to migrate it to the refactored structure.
 
 ### 9.1 Back up the existing config
 
@@ -1239,6 +1147,14 @@ The active structure should be:
 ~/.config/nvim/lua/plugins/*.lua
 ```
 
+Remove old active plugin directories once everything has been migrated:
+
+```bash
+rm -rf ~/.config/nvim/lua/kickstart
+rm -rf ~/.config/nvim/lua/custom
+```
+
+Only do this after confirming the useful files have been migrated.
 
 ### 9.3 Confirm `init.lua` only imports the active plugin directory
 
@@ -1254,6 +1170,12 @@ Expected:
 { import = 'plugins' },
 ```
 
+Not expected:
+
+```lua
+{ import = 'kickstart.plugins' },
+{ import = 'custom.plugins' },
+```
 
 ### 9.4 Reset or resync plugins
 
@@ -1326,7 +1248,7 @@ nvim --headless "+TSUpdate" +qa
 | `linting.lua` | `nvim-lint` linting |
 | `lsp-config.lua` | Mason and LSP setup |
 | `lualine.lua` | Statusline |
-| `markdown-preview.lua` | Markdown preview |
+| `vivify.lua` | Vivify Markdown/browser preview |
 | `neotree.lua` | File tree |
 | `nightfox.lua` | Colorscheme |
 | `telescope.lua` | Fuzzy finding |
@@ -1485,12 +1407,12 @@ Useful commands:
 
 ---
 
-### Markdown Preview
+### Vivify
 
 Defined in:
 
 ```text
-lua/plugins/markdown-preview.lua
+lua/plugins/vivify.lua
 lua/vim-options.lua
 ```
 
@@ -1498,18 +1420,18 @@ Recommended keymaps:
 
 | Key | Mode | Action |
 |---|---:|---|
-| `<leader>ms` | Normal | Start Markdown Preview |
-| `<leader>mx` | Normal | Stop Markdown Preview |
-| `<leader>mp` | Normal | Toggle Markdown Preview |
+| `<leader>ms` | Normal | Start Vivify |
+| `<leader>mx` | Normal | Stop Vivify |
+| `<leader>mp` | Normal | Toggle Vivify |
 
-Avoid using `<C-p>` for Markdown Preview because Telescope uses `<C-p>`.
+Avoid using `<C-p>` for Vivify because Telescope uses `<C-p>`.
 
 Commands:
 
 ```vim
-:MarkdownPreview
-:MarkdownPreviewStop
-:MarkdownPreviewToggle
+:Vivify
+:Vivify
+:Vivify
 ```
 
 ---
@@ -2019,26 +1941,26 @@ Then run:
 
 ---
 
-### Markdown Preview
+### Vivify
 
 Config lives in:
 
 ```text
-lua/plugins/markdown-preview.lua
+lua/plugins/vivify.lua
 ```
 
 Commands:
 
 ```vim
-:MarkdownPreview
-:MarkdownPreviewStop
-:MarkdownPreviewToggle
+:Vivify
+:Vivify
+:Vivify
 ```
 
 If the plugin does not work, manually install its web app dependencies:
 
 ```bash
-cd ~/.local/share/nvim/lazy/markdown-preview.nvim
+cd ~/.local/share/nvim/lazy/vivify.vim
 yarn install
 ```
 
@@ -2118,7 +2040,7 @@ Test core commands:
 :Telescope find_files
 :Telescope live_grep
 :Neotree filesystem reveal left
-:MarkdownPreview
+:Vivify
 ```
 
 Test core mappings:
@@ -2259,7 +2181,28 @@ Then:
 :TSUpdate
 ```
 
-### Markdown Preview does not open
+### Icons, dashboard, or Neo-tree glyphs look broken
+
+This usually means the terminal is not using a Nerd Font.
+
+Verify the font is installed:
+
+```bash
+fc-list | grep -i "JetBrains.*Nerd"
+```
+
+Then set GNOME Terminal manually:
+
+```text
+GNOME Terminal → Preferences → your active profile → Text
+Enable Custom font
+Select JetBrainsMono Nerd Font or JetBrainsMono Nerd Font Mono
+Close and reopen the terminal
+```
+
+If you are using SSH or a terminal from the host OS, install and select the Nerd Font on the host terminal application. Font rendering is controlled by the terminal client.
+
+### Vivify does not open
 
 Install Node/Yarn tooling:
 
@@ -2271,7 +2214,7 @@ sudo npm install -g yarn
 Then:
 
 ```bash
-cd ~/.local/share/nvim/lazy/markdown-preview.nvim
+cd ~/.local/share/nvim/lazy/vivify.vim
 yarn install
 ```
 
@@ -2341,7 +2284,7 @@ which dlv
 :TSInstallInfo      Show Treesitter parser status
 :Telescope          Open Telescope picker list
 :Neotree            Open Neo-tree
-:MarkdownPreview    Start Markdown Preview
+:Vivify    Start Vivify
 ```
 
 ---
@@ -2393,7 +2336,7 @@ Formatting works with Space f
 Linting works with Space l
 Git signs appear inside a Git repo
 DAP breakpoint toggles with Space d b
-Markdown preview toggles with Space m p
+Vivify opens with Space m p
 ```
 
 If those work, the build is operational.

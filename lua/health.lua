@@ -176,6 +176,21 @@ local function check_language_runtimes()
   check_executable('cargo', false, 'Required for Rust-installed tools like stylua if installed through cargo')
 end
 
+local function check_vivify()
+  health_start 'Vivify Markdown preview'
+
+  check_executable('viv', true, 'Required for Vivify Markdown preview')
+  check_executable('vivify-server', true, 'Required for Vivify Markdown preview server')
+
+  if executable_exists('viv') then
+    health_ok('Vivify client available: ' .. vim.fn.exepath('viv'))
+  end
+
+  if executable_exists('vivify-server') then
+    health_ok('Vivify server available: ' .. vim.fn.exepath('vivify-server'))
+  end
+end
+
 local function check_formatters()
   health_start 'Formatters'
 

@@ -5,34 +5,17 @@ set -euo pipefail
 #
 # Bootstrap AM-Turing/nvim-personal on a Debian/Ubuntu-based VM.
 #
-# Primary flow:
-#   1. Check for an existing ~/.config/nvim.
-#   2. If one exists, ask whether to upgrade/replace/skip.
-#   3. Clone the config from GitHub using SSH or HTTPS.
-#   4. Install apt dependencies.
-#   5. Set up shell PATH helpers.
-#   6. Set up the Debian-safe Neovim Python provider venv.
-#   7. Install common npm/gem/go/rust tooling when available.
-#   8. Run Lazy/Treesitter/health validation.
+# This version installs:
+#   - apt dependencies
+#   - modern official Neovim
+#   - Vivify Markdown preview binaries: viv and vivify-server
+#   - JetBrainsMono Nerd Font
+#   - Neovim Python provider venv
+#   - common npm/rust/go/ruby tools
+#   - this Neovim config from GitHub
 #
-# Usage:
-#   chmod +x bootstrap.sh
-#   ./bootstrap.sh
-#
-# Optional examples:
-#   ./bootstrap.sh --yes
-#   ./bootstrap.sh --repo-mode https
-#   ./bootstrap.sh --repo-mode ssh
-#   ./bootstrap.sh --existing-mode backup-replace
-#   ./bootstrap.sh --existing-mode upgrade-in-place
-#   ./bootstrap.sh --skip-apt
-#   ./bootstrap.sh --skip-node-globals
-#   ./bootstrap.sh --skip-rust
-#   ./bootstrap.sh --skip-go
-#
-# Repository:
-#   SSH:   git@github.com:AM-Turing/nvim-personal.git
-#   HTTPS: https://github.com/AM-Turing/nvim-personal.git
+# Vivify source:
+#   https://github.com/jannis-baum/Vivify/releases/download/v0.14.0/vivify-linux.tar.gz
 
 readonly SSH_REPO="git@github.com:AM-Turing/nvim-personal.git"
 readonly HTTPS_REPO="https://github.com/AM-Turing/nvim-personal.git"
@@ -43,34 +26,36 @@ readonly NVIM_DATA_DIR="$HOME/.local/share/nvim"
 readonly NVIM_PYTHON_DIR="$NVIM_DATA_DIR/python"
 readonly NVIM_PYTHON_VENV="$NVIM_PYTHON_DIR/venv"
 readonly LOCAL_BIN="$HOME/.local/bin"
+readonly TOOLS_DIR="$HOME/tools"
+
+readonly NEOVIM_TOOLS_DIR="$TOOLS_DIR/neovim"
+readonly MODERN_NVIM_BIN="$NEOVIM_TOOLS_DIR/nvim-linux-x86_64/bin/nvim"
+
+readonly VIVIFY_VERSION="v0.14.0"
+readonly VIVIFY_URL="https://github.com/jannis-baum/Vivify/releases/download/${VIVIFY_VERSION}/vivify-linux.tar.gz"
+readonly VIVIFY_TOOLS_DIR="$TOOLS_DIR/vivify"
+
+readonly JETBRAINS_NERD_FONT_URL="https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip"
+readonly JETBRAINS_NERD_FONT_DIR="$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
 
 REPO_MODE=""
 EXISTING_MODE=""
 ASSUME_YES="false"
 
 SKIP_APT="false"
+SKIP_NEOVIM_INSTALL="false"
+SKIP_VIVIFY_INSTALL="false"
+SKIP_NERD_FONT_INSTALL="false"
 SKIP_NODE_GLOBALS="false"
 SKIP_RUST="false"
 SKIP_GO="false"
 SKIP_GEM="false"
 SKIP_VALIDATION="false"
 
-timestamp() {
-  date +"%Y%m%d-%H%M%S"
-}
-
-log() {
-  printf '\n[+] %s\n' "$*"
-}
-
-warn() {
-  printf '\n[!] %s\n' "$*" >&2
-}
-
-die() {
-  printf '\n[ERROR] %s\n' "$*" >&2
-  exit 1
-}
+timestamp() { date +"%Y%m%d-%H%M%S"; }
+log() { printf '\n[+] %s\n' "$*"; }
+warn() { printf '\n[!] %s\n' "$*" >&2; }
+die() { printf '\n[ERROR] %s\n' "$*" >&2; exit 1; }
 
 usage() {
   cat <<'EOF'
@@ -85,21 +70,21 @@ Options:
 
   --repo-mode ssh|https
       Select GitHub clone method.
-      Default interactive behavior:
-        - use ssh if GitHub SSH appears available
-        - otherwise use https
 
   --existing-mode backup-replace|upgrade-in-place|skip
       Behavior when ~/.config/nvim already exists.
-        backup-replace:
-          Back up existing ~/.config/nvim, then clone a fresh copy.
-        upgrade-in-place:
-          Back up existing ~/.config/nvim, then clone to a temp dir and rsync into place.
-        skip:
-          Do not modify ~/.config/nvim.
 
   --skip-apt
       Do not install apt packages.
+
+  --skip-neovim-install
+      Do not install the official modern Neovim release tarball.
+
+  --skip-vivify-install
+      Do not install Vivify binaries.
+
+  --skip-nerd-font-install
+      Do not install JetBrainsMono Nerd Font.
 
   --skip-node-globals
       Do not install global npm packages.
@@ -129,10 +114,7 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --yes|-y)
-      ASSUME_YES="true"
-      shift
-      ;;
+    --yes|-y) ASSUME_YES="true"; shift ;;
     --repo-mode)
       REPO_MODE="${2:-}"
       [[ "$REPO_MODE" == "ssh" || "$REPO_MODE" == "https" ]] || die "--repo-mode must be ssh or https"
@@ -143,37 +125,17 @@ while [[ $# -gt 0 ]]; do
       [[ "$EXISTING_MODE" == "backup-replace" || "$EXISTING_MODE" == "upgrade-in-place" || "$EXISTING_MODE" == "skip" ]] || die "--existing-mode must be backup-replace, upgrade-in-place, or skip"
       shift 2
       ;;
-    --skip-apt)
-      SKIP_APT="true"
-      shift
-      ;;
-    --skip-node-globals)
-      SKIP_NODE_GLOBALS="true"
-      shift
-      ;;
-    --skip-rust)
-      SKIP_RUST="true"
-      shift
-      ;;
-    --skip-go)
-      SKIP_GO="true"
-      shift
-      ;;
-    --skip-gem)
-      SKIP_GEM="true"
-      shift
-      ;;
-    --skip-validation)
-      SKIP_VALIDATION="true"
-      shift
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      die "Unknown argument: $1"
-      ;;
+    --skip-apt) SKIP_APT="true"; shift ;;
+    --skip-neovim-install) SKIP_NEOVIM_INSTALL="true"; shift ;;
+    --skip-vivify-install) SKIP_VIVIFY_INSTALL="true"; shift ;;
+    --skip-nerd-font-install) SKIP_NERD_FONT_INSTALL="true"; shift ;;
+    --skip-node-globals) SKIP_NODE_GLOBALS="true"; shift ;;
+    --skip-rust) SKIP_RUST="true"; shift ;;
+    --skip-go) SKIP_GO="true"; shift ;;
+    --skip-gem) SKIP_GEM="true"; shift ;;
+    --skip-validation) SKIP_VALIDATION="true"; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) die "Unknown argument: $1" ;;
   esac
 done
 
@@ -196,54 +158,8 @@ confirm() {
   [[ "$answer" =~ ^[Yy]$ ]]
 }
 
-choose_existing_mode() {
-  if [[ -n "$EXISTING_MODE" ]]; then
-    return
-  fi
-
-  if [[ "$ASSUME_YES" == "true" ]]; then
-    EXISTING_MODE="backup-replace"
-    return
-  fi
-
-  cat <<EOF
-
-Existing Neovim config detected:
-
-  $NVIM_CONFIG_DIR
-
-Choose how to proceed:
-
-  1) backup-replace
-     Back up existing config, then clone this repo as a fresh ~/.config/nvim.
-
-  2) upgrade-in-place
-     Back up existing config, clone this repo to a temp dir, then rsync it into ~/.config/nvim.
-     This preserves extra files not overwritten by the repo, but old files may remain.
-
-  3) skip
-     Do not modify ~/.config/nvim.
-
-EOF
-
-  local choice
-  while true; do
-    read -r -p "Select [1/2/3]: " choice
-    case "$choice" in
-      1) EXISTING_MODE="backup-replace"; break ;;
-      2) EXISTING_MODE="upgrade-in-place"; break ;;
-      3) EXISTING_MODE="skip"; break ;;
-      *) warn "Please choose 1, 2, or 3." ;;
-    esac
-  done
-}
-
 github_ssh_available() {
   command -v ssh >/dev/null 2>&1 || return 1
-
-  # BatchMode prevents password/passphrase prompts.
-  # GitHub returns exit status 1 after successful authentication because shell access is not provided,
-  # so check output text instead of only exit status.
   local output
   output="$(ssh -o BatchMode=yes -o ConnectTimeout=5 -T git@github.com 2>&1 || true)"
   grep -qi "successfully authenticated" <<<"$output"
@@ -263,8 +179,7 @@ choose_repo_mode() {
       REPO_MODE="https"
     fi
   else
-    warn "GitHub SSH authentication was not detected. HTTPS will be used unless you choose SSH manually."
-
+    warn "GitHub SSH authentication was not detected."
     if [[ "$ASSUME_YES" == "true" ]]; then
       REPO_MODE="https"
       return
@@ -290,69 +205,170 @@ repo_url() {
   fi
 }
 
+choose_existing_mode() {
+  if [[ -n "$EXISTING_MODE" ]]; then
+    return
+  fi
+
+  if [[ "$ASSUME_YES" == "true" ]]; then
+    EXISTING_MODE="backup-replace"
+    return
+  fi
+
+  cat <<EOF
+
+Existing Neovim config detected:
+
+  $NVIM_CONFIG_DIR
+
+Choose how to proceed:
+
+  1) backup-replace
+     Back up existing config, then clone a fresh copy.
+
+  2) upgrade-in-place
+     Back up existing config, then rsync the new repo over the existing config.
+
+  3) skip
+     Do not modify ~/.config/nvim.
+
+EOF
+
+  local choice
+  while true; do
+    read -r -p "Select [1/2/3]: " choice
+    case "$choice" in
+      1) EXISTING_MODE="backup-replace"; break ;;
+      2) EXISTING_MODE="upgrade-in-place"; break ;;
+      3) EXISTING_MODE="skip"; break ;;
+      *) warn "Please choose 1, 2, or 3." ;;
+    esac
+  done
+}
+
 install_apt_dependencies() {
   if [[ "$SKIP_APT" == "true" ]]; then
     warn "Skipping apt dependency installation."
     return
   fi
 
-  command -v apt-get >/dev/null 2>&1 || die "apt-get not found. This bootstrap script targets Debian/Ubuntu-based systems."
+  command -v apt-get >/dev/null 2>&1 || die "apt-get not found. This script targets Debian/Ubuntu."
 
   log "Installing apt dependencies"
   sudo apt-get update
 
   sudo apt-get install -y \
-    git \
-    curl \
-    wget \
-    unzip \
-    tar \
-    gzip \
-    xz-utils \
-    ca-certificates \
-    gnupg \
-    software-properties-common \
-    build-essential \
-    gcc \
-    g++ \
-    make \
-    cmake \
-    pkg-config \
-    ripgrep \
-    fd-find \
-    jq \
-    tree \
-    xclip \
-    wl-clipboard \
-    python3 \
-    python3-pip \
-    python3-venv \
-    python3-dev \
-    nodejs \
-    npm \
-    lua5.1 \
-    liblua5.1-0-dev \
-    libreadline-dev \
-    luarocks \
-    ruby-full \
-    openjdk-17-jdk \
-    clangd \
-    shellcheck \
-    codespell \
-    neovim
+    git curl wget unzip tar gzip xz-utils ca-certificates gnupg \
+    software-properties-common build-essential gcc g++ make cmake pkg-config \
+    ripgrep fd-find jq tree xclip wl-clipboard rsync \
+    python3 python3-pip python3-venv python3-dev \
+    nodejs npm lua5.1 liblua5.1-0-dev libreadline-dev luarocks \
+    ruby-full openjdk-17-jdk clangd shellcheck codespell
+}
+
+install_modern_neovim() {
+  if [[ "$SKIP_NEOVIM_INSTALL" == "true" ]]; then
+    warn "Skipping official Neovim install."
+    return
+  fi
+
+  log "Installing modern Neovim from official release tarball"
+
+  mkdir -p "$NEOVIM_TOOLS_DIR"
+  cd "$NEOVIM_TOOLS_DIR"
+
+  local tarball="nvim-linux-x86_64.tar.gz"
+  local url="https://github.com/neovim/neovim/releases/latest/download/$tarball"
+
+  curl -fL -o "$tarball" "$url"
+
+  rm -rf nvim-linux-x86_64
+  tar xzf "$tarball"
+
+  mkdir -p "$LOCAL_BIN"
+  ln -sf "$MODERN_NVIM_BIN" "$LOCAL_BIN/nvim"
+
+  hash -r || true
+
+  [[ -x "$LOCAL_BIN/nvim" ]] || die "Modern Neovim install failed"
+  "$LOCAL_BIN/nvim" --version | head -n 1
+}
+
+install_vivify() {
+  if [[ "$SKIP_VIVIFY_INSTALL" == "true" ]]; then
+    warn "Skipping Vivify install."
+    return
+  fi
+
+  log "Installing Vivify ${VIVIFY_VERSION}"
+
+  mkdir -p "$VIVIFY_TOOLS_DIR" "$LOCAL_BIN"
+  cd "$VIVIFY_TOOLS_DIR"
+
+  local archive="vivify-linux.tar.gz"
+
+  curl -fL -o "$archive" "$VIVIFY_URL"
+
+  rm -rf extracted
+  mkdir -p extracted
+  tar xzf "$archive" -C extracted
+
+  local viv_bin
+  local server_bin
+
+  viv_bin="$(find extracted -type f -name 'viv' | head -n 1 || true)"
+  server_bin="$(find extracted -type f -name 'vivify-server' | head -n 1 || true)"
+
+  [[ -n "$viv_bin" ]] || die "Could not find viv binary in $archive"
+  [[ -n "$server_bin" ]] || die "Could not find vivify-server binary in $archive"
+
+  install -m 0755 "$viv_bin" "$LOCAL_BIN/viv"
+  install -m 0755 "$server_bin" "$LOCAL_BIN/vivify-server"
+
+  log "Vivify binaries installed:"
+  printf '  %s\n' "$LOCAL_BIN/viv"
+  printf '  %s\n' "$LOCAL_BIN/vivify-server"
+}
+
+install_jetbrains_nerd_font() {
+  if [[ "$SKIP_NERD_FONT_INSTALL" == "true" ]]; then
+    warn "Skipping JetBrainsMono Nerd Font install."
+    return
+  fi
+
+  log "Installing JetBrainsMono Nerd Font"
+
+  mkdir -p "$JETBRAINS_NERD_FONT_DIR"
+  cd "$JETBRAINS_NERD_FONT_DIR"
+
+  local archive="JetBrainsMono.zip"
+
+  curl -fL -o "$archive" "$JETBRAINS_NERD_FONT_URL"
+
+  # Remove old font files from this managed directory before extracting.
+  find "$JETBRAINS_NERD_FONT_DIR" -type f \( -name '*.ttf' -o -name '*.otf' \) -delete
+
+  unzip -o "$archive" -d "$JETBRAINS_NERD_FONT_DIR" >/dev/null
+
+  if command -v fc-cache >/dev/null 2>&1; then
+    fc-cache -fv "$HOME/.local/share/fonts" >/dev/null || warn "fc-cache failed. You may need to refresh fonts manually."
+  else
+    warn "fc-cache not found. Install fontconfig or refresh fonts manually."
+  fi
+
+  log "JetBrainsMono Nerd Font installed under $JETBRAINS_NERD_FONT_DIR"
 }
 
 ensure_bashrc_block() {
   local bashrc="$HOME/.bashrc"
   local begin="# >>> nvim-personal bootstrap >>>"
-  local end="# <<< nvim-personal bootstrap <<<"
 
   log "Ensuring ~/.bashrc PATH block"
 
   touch "$bashrc"
 
   if grep -Fq "$begin" "$bashrc"; then
-    log "Existing nvim-personal PATH block found in ~/.bashrc. Leaving it unchanged."
+    log "Existing nvim-personal PATH block found in ~/.bashrc."
     return
   fi
 
@@ -407,14 +423,8 @@ setup_python_provider() {
   fi
 
   "$NVIM_PYTHON_VENV/bin/python" -m pip install --upgrade pip
-
   "$NVIM_PYTHON_VENV/bin/python" -m pip install --upgrade \
-    pynvim \
-    debugpy \
-    ruff \
-    black \
-    isort \
-    mypy
+    pynvim debugpy ruff black isort mypy
 }
 
 install_node_globals() {
@@ -431,16 +441,9 @@ install_node_globals() {
   log "Installing global npm tools"
 
   sudo npm install -g \
-    dockerfile-language-server-nodejs \
-    pyright \
-    typescript \
-    typescript-language-server \
-    bash-language-server \
-    vscode-langservers-extracted \
-    yaml-language-server \
-    markdownlint-cli \
-    prettier \
-    yarn
+    dockerfile-language-server-nodejs pyright typescript typescript-language-server \
+    bash-language-server vscode-langservers-extracted yaml-language-server \
+    markdownlint-cli prettier yarn
 }
 
 install_rust_and_stylua() {
@@ -459,8 +462,6 @@ install_rust_and_stylua() {
   if command -v cargo >/dev/null 2>&1; then
     log "Installing/updating stylua through cargo"
     cargo install stylua || warn "cargo install stylua failed. Mason may still install stylua."
-  else
-    warn "cargo not found after rustup step. Skipping stylua cargo install."
   fi
 }
 
@@ -509,9 +510,7 @@ install_config_fresh() {
 
   mkdir -p "$NVIM_CONFIG_PARENT"
 
-  if [[ -e "$NVIM_CONFIG_DIR" || -L "$NVIM_CONFIG_DIR" ]]; then
-    die "$NVIM_CONFIG_DIR already exists. Existing setup handling should have run first."
-  fi
+  [[ ! -e "$NVIM_CONFIG_DIR" && ! -L "$NVIM_CONFIG_DIR" ]] || die "$NVIM_CONFIG_DIR already exists."
 
   log "Installing Neovim config to $NVIM_CONFIG_DIR"
   cp -a "$source_dir" "$NVIM_CONFIG_DIR"
@@ -537,15 +536,7 @@ upgrade_existing_config() {
   cp -a "$NVIM_CONFIG_DIR" "$backup_path"
 
   log "Upgrading existing config in place with rsync"
-  if command -v rsync >/dev/null 2>&1; then
-    rsync -a --delete \
-      --exclude ".git" \
-      "$source_dir/" \
-      "$NVIM_CONFIG_DIR/"
-  else
-    warn "rsync not found. Falling back to cp -a. Old files may remain."
-    cp -a "$source_dir/." "$NVIM_CONFIG_DIR/"
-  fi
+  rsync -a --delete --exclude ".git" "$source_dir/" "$NVIM_CONFIG_DIR/"
 }
 
 install_or_upgrade_config() {
@@ -555,10 +546,7 @@ install_or_upgrade_config() {
     choose_existing_mode
 
     case "$EXISTING_MODE" in
-      skip)
-        warn "Skipping Neovim config installation/update."
-        return
-        ;;
+      skip) warn "Skipping Neovim config installation/update."; return ;;
       backup-replace)
         local source_dir
         source_dir="$(clone_to_temp)"
@@ -569,34 +557,13 @@ install_or_upgrade_config() {
         source_dir="$(clone_to_temp)"
         upgrade_existing_config "$source_dir"
         ;;
-      *)
-        die "Invalid existing mode: $EXISTING_MODE"
-        ;;
+      *) die "Invalid existing mode: $EXISTING_MODE" ;;
     esac
   else
     local source_dir
     source_dir="$(clone_to_temp)"
     install_config_fresh "$source_dir"
   fi
-}
-
-install_modern_neovim() {
-  log "Installing modern Neovim from official release tarball"
-
-  mkdir -p "$HOME/tools/neovim"
-  cd "$HOME/tools/neovim"
-
-  curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz
-
-  rm -rf nvim-linux-x86_64
-  tar xzf nvim-linux-x86_64.tar.gz
-
-  mkdir -p "$HOME/.local/bin"
-  ln -sf "$HOME/tools/neovim/nvim-linux-x86_64/bin/nvim" "$HOME/.local/bin/nvim"
-
-  hash -r || true
-
-  "$HOME/.local/bin/nvim" --version
 }
 
 run_neovim_validation() {
@@ -609,6 +576,9 @@ run_neovim_validation() {
     warn "nvim not found. Skipping Neovim validation."
     return
   fi
+
+  log "Using Neovim: $(command -v nvim)"
+  nvim --version | head -n 1 || true
 
   log "Running Lazy sync headlessly"
   nvim --headless "+Lazy sync" +qa || warn "Lazy sync failed. Open nvim and run :Lazy sync for details."
@@ -628,14 +598,32 @@ print_summary() {
 
 Bootstrap complete.
 
-Next manual checks:
+Reload shell environment:
 
   source ~/.bashrc
+  hash -r
 
-  nvim
+Confirm binaries:
+
+  which nvim
+  nvim --version
+
+  which viv
+  which vivify-server
+
+Expected locations:
+
+  $LOCAL_BIN/nvim
+  $LOCAL_BIN/viv
+  $LOCAL_BIN/vivify-server
+
+Test:
+
+  nvim README.md
 
 Inside Neovim:
 
+  :Vivify
   :ConfigHealth
   :checkhealth
   :Lazy
@@ -643,7 +631,22 @@ Inside Neovim:
   :LspInfo
   :TSInstallInfo
 
-Core mappings to test:
+
+GNOME Terminal font setup is manual:
+
+  1. Open GNOME Terminal preferences.
+  2. Select your active profile.
+  3. Go to Text.
+  4. Enable Custom font.
+  5. Select one of:
+       JetBrainsMono Nerd Font
+       JetBrainsMono Nerd Font Mono
+  6. Close and reopen the terminal.
+
+This is required for Neo-tree icons, dashboard glyphs, lualine icons,
+and Nerd Font/Powerline symbols to render correctly.
+
+Core mappings:
 
   Ctrl-p      Telescope find files
   Ctrl-g      Telescope live grep
@@ -652,14 +655,7 @@ Core mappings to test:
   Space l     Lint current file
   Space d b   Toggle debug breakpoint
   Space g s   Git stage hunk
-
-Config path:
-
-  $NVIM_CONFIG_DIR
-
-Python provider:
-
-  $NVIM_PYTHON_VENV/bin/python
+  Space m p   Open Vivify Markdown preview
 
 EOF
 }
@@ -669,6 +665,8 @@ main() {
 
   install_apt_dependencies
   install_modern_neovim
+  install_vivify
+  install_jetbrains_nerd_font
   ensure_bashrc_block
   ensure_fd_symlink
   setup_python_provider
