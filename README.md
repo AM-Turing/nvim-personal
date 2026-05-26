@@ -197,16 +197,71 @@ nvim --version
 
 ## 5. Install Python Provider Support
 
-Neovim can use Python support for plugins and tooling. Install `pynvim` in the user environment:
+Debian 12+ uses an externally managed system Python environment. That means you should not install Neovim Python packages directly into the system Python environment with:
 
 ```bash
-python3 -m pip install --user --upgrade pynvim
+python3 -m pip install --user pynvim
 ```
 
-Optional Python development tools:
+Instead, create a dedicated Python virtual environment for Neovim's Python provider.
+
+This virtual environment should live under Neovim's data directory, not inside the config directory.
+
+Use:
 
 ```bash
-python3 -m pip install --user --upgrade \
+sudo apt install -y python3-venv python3-pip
+
+mkdir -p ~/.local/share/nvim/python
+python3 -m venv ~/.local/share/nvim/python/venv
+
+~/.local/share/nvim/python/venv/bin/python -m pip install --upgrade pip
+~/.local/share/nvim/python/venv/bin/python -m pip install pynvim
+```
+
+Then tell Neovim to use that Python interpreter.
+
+Add this near the top of either:
+
+```text
+~/.config/nvim/init.lua
+```
+
+or:
+
+```text
+~/.config/nvim/lua/vim-options.lua
+```
+
+```lua
+vim.g.python3_host_prog = vim.fn.expand '~/.local/share/nvim/python/venv/bin/python'
+```
+
+Verify inside Neovim:
+
+```vim
+:checkhealth provider
+```
+
+### Where things belong
+
+```text
+~/.config/nvim/
+  Neovim Lua config only
+
+~/.local/share/nvim/python/venv/
+  Dedicated Python virtual environment used by Neovim itself
+
+~/.local/bin/
+  User executables and symlinks, not virtual environments
+```
+
+### Optional Python development tools
+
+If you want Python formatters, linters, or debuggers available globally to Neovim, install them into the same Neovim provider venv:
+
+```bash
+~/.local/share/nvim/python/venv/bin/python -m pip install --upgrade \
   debugpy \
   ruff \
   black \
@@ -214,24 +269,8 @@ python3 -m pip install --user --upgrade \
   mypy
 ```
 
-Make sure user-level Python scripts are on your path:
+This keeps Python tooling isolated from Debian's system Python while still making the tools available to Neovim.
 
-```bash
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-Verify:
-
-```bash
-python3 -m pip show pynvim
-```
-
-Inside Neovim, later run:
-
-```vim
-:checkhealth provider
-```
 
 ---
 
@@ -436,6 +475,12 @@ Confirm:
 ```bash
 ls ~/.config/nvim/init.lua
 ls ~/.config/nvim/lua
+```
+
+If this is a fresh VM, confirm that your config includes the Python provider path:
+
+```lua
+vim.g.python3_host_prog = vim.fn.expand '~/.local/share/nvim/python/venv/bin/python'
 ```
 
 ---
@@ -757,7 +802,17 @@ fi
 grep -qxF 'export PATH="$HOME/.local/bin:$PATH"' "$HOME/.bashrc" || \
   echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
 
-python3 -m pip install --user --upgrade pynvim debugpy ruff black isort mypy
+mkdir -p "$HOME/.local/share/nvim/python"
+python3 -m venv "$HOME/.local/share/nvim/python/venv"
+
+"$HOME/.local/share/nvim/python/venv/bin/python" -m pip install --upgrade pip
+"$HOME/.local/share/nvim/python/venv/bin/python" -m pip install --upgrade \
+  pynvim \
+  debugpy \
+  ruff \
+  black \
+  isort \
+  mypy
 
 sudo npm install -g \
   dockerfile-language-server-nodejs \
@@ -827,7 +882,8 @@ ripgrep
 fd
 gcc/build-essential
 python3
-pynvim
+python3-venv
+Neovim Python provider venv with pynvim
 nodejs/npm
 lua-language-server
 stylua
