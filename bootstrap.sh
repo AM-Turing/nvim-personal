@@ -12,6 +12,7 @@ set -euo pipefail
 #   - JetBrainsMono Nerd Font
 #   - Neovim Python provider venv
 #   - common npm/rust/go/ruby tools
+  - Go toolchain from apt for Mason Go packages: gopls/gofumpt
 #   - this Neovim config from the current local repo when possible, otherwise GitHub
 #
 # Vivify source:
@@ -263,6 +264,7 @@ install_apt_dependencies() {
     ripgrep fd-find jq tree xclip wl-clipboard rsync \
     python3 python3-pip python3-venv python3-dev \
     nodejs npm lua5.1 liblua5.1-0-dev libreadline-dev luarocks \
+    golang-go \
     ruby-full openjdk-17-jdk clangd shellcheck codespell
 }
 
@@ -394,6 +396,22 @@ export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
 EOF
 }
 
+ensure_current_shell_path() {
+  # Make freshly installed user-local tools and Go tools visible during this same script run.
+  # ~/.bashrc handles future shells, but Mason validation runs before the user reloads a shell.
+  log "Ensuring current shell PATH includes local and Go tool directories"
+
+  export PATH="$LOCAL_BIN:/usr/local/go/bin:$HOME/go/bin:$PATH"
+  hash -r || true
+
+  if command -v go >/dev/null 2>&1; then
+    log "Go available: $(command -v go)"
+    go version || true
+  else
+    warn "go is still not available in PATH after apt setup. Mason Go packages may fail."
+  fi
+}
+
 ensure_fd_symlink() {
   log "Ensuring fd command exists"
 
@@ -471,11 +489,17 @@ install_go_tools() {
     return
   fi
 
+  # Ensure Go tools installed with `go install` are visible to this script and future shells.
+  export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
+  hash -r || true
+
   if command -v go >/dev/null 2>&1; then
-    log "Installing/updating gopls"
+    log "Installing/updating gopls and gofumpt through Go"
+    mkdir -p "$HOME/go/bin"
     go install golang.org/x/tools/gopls@latest || warn "go install gopls failed. Mason may still install gopls."
+    go install mvdan.cc/gofumpt@latest || warn "go install gofumpt failed. Mason may still install gofumpt."
   else
-    warn "go not found. Install Go manually if you need Go/gopls support."
+    warn "go not found. Install Go manually if you need Go/gopls/gofumpt support."
   fi
 }
 
@@ -701,6 +725,7 @@ main() {
   install_vivify
   install_jetbrains_nerd_font
   ensure_bashrc_block
+  ensure_current_shell_path
   ensure_fd_symlink
   setup_python_provider
   install_node_globals

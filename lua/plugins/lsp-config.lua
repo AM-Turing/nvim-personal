@@ -98,6 +98,13 @@ return {
   },
 
   -- Neovim LSP configuration.
+  --
+  -- Neovim 0.11+ deprecates the old:
+  --   require('lspconfig').SERVER.setup(...)
+  -- pattern.
+  --
+  -- Keep nvim-lspconfig installed because it still provides server defaults,
+  -- but use Neovim's native vim.lsp.config() and vim.lsp.enable() APIs.
   {
     'neovim/nvim-lspconfig',
     dependencies = {
@@ -107,7 +114,6 @@ return {
     },
     lazy = false,
     config = function()
-      local lspconfig = require 'lspconfig'
       local capabilities = require('cmp_nvim_lsp').default_capabilities()
 
       local servers = {
@@ -188,7 +194,9 @@ return {
 
       for server_name, server_config in pairs(servers) do
         server_config.capabilities = capabilities
-        lspconfig[server_name].setup(server_config)
+
+        vim.lsp.config(server_name, server_config)
+        vim.lsp.enable(server_name)
       end
     end,
   },
@@ -196,6 +204,8 @@ return {
 
 -- LSP help:
 --   :help vim.lsp.buf
+--   :help vim.lsp.config
+--   :help vim.lsp.enable
 --
 -- Useful commands:
 --   :LspInfo
