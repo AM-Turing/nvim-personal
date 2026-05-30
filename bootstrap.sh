@@ -12,7 +12,7 @@ set -euo pipefail
 #   - JetBrainsMono Nerd Font
 #   - Neovim Python provider venv
 #   - common npm/rust/go/ruby tools
-#   - this Neovim config from GitHub
+#   - this Neovim config from the current local repo when possible, otherwise GitHub
 #
 # Vivify source:
 #   https://github.com/jannis-baum/Vivify/releases/download/v0.14.0/vivify-linux.tar.gz
@@ -53,7 +53,7 @@ SKIP_GEM="false"
 SKIP_VALIDATION="false"
 
 timestamp() { date +"%Y%m%d-%H%M%S"; }
-log() { printf '\n[+] %s\n' "$*"; }
+log() { printf '\n[+] %s\n' "$*" >&2; }
 warn() { printf '\n[!] %s\n' "$*" >&2; }
 die() { printf '\n[ERROR] %s\n' "$*" >&2; exit 1; }
 
@@ -493,9 +493,44 @@ install_ruby_tools() {
   fi
 }
 
-clone_to_temp() {
+detect_local_repo_root() {
+  # Prefer the already-cloned repository that contains this bootstrap script.
+  # This avoids needlessly cloning the same repo again and makes fresh VM setup smoother.
+  local script_dir
+  script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+  # If the script is run from inside the checked-out nvim-personal repository,
+  # install from that local working tree.
+  if [[ -d "$script_dir/.git" && -f "$script_dir/init.lua" ]]; then
+    printf '%s\n' "$script_dir"
+    return 0
+  fi
+
+  # If the script lives in a helper/scripts directory inside the repo, try the parent.
+  local parent_dir
+  parent_dir="$(cd -- "$script_dir/.." && pwd)"
+  if [[ -d "$parent_dir/.git" && -f "$parent_dir/init.lua" ]]; then
+    printf '%s\n' "$parent_dir"
+    return 0
+  fi
+
+  return 1
+}
+
+get_config_source() {
+  local local_repo
+
+  if local_repo="$(detect_local_repo_root)"; then
+    log "Using existing local repo at $local_repo"
+    printf '%s\n' "$local_repo"
+    return 0
+  fi
+
+  choose_repo_mode
+
   local temp_dir
   temp_dir="$(mktemp -d)"
+
   local url
   url="$(repo_url)"
 
@@ -540,8 +575,6 @@ upgrade_existing_config() {
 }
 
 install_or_upgrade_config() {
-  choose_repo_mode
-
   if [[ -e "$NVIM_CONFIG_DIR" || -L "$NVIM_CONFIG_DIR" ]]; then
     choose_existing_mode
 
@@ -549,19 +582,19 @@ install_or_upgrade_config() {
       skip) warn "Skipping Neovim config installation/update."; return ;;
       backup-replace)
         local source_dir
-        source_dir="$(clone_to_temp)"
+        source_dir="$(get_config_source)"
         replace_existing_config "$source_dir"
         ;;
       upgrade-in-place)
         local source_dir
-        source_dir="$(clone_to_temp)"
+        source_dir="$(get_config_source)"
         upgrade_existing_config "$source_dir"
         ;;
       *) die "Invalid existing mode: $EXISTING_MODE" ;;
     esac
   else
     local source_dir
-    source_dir="$(clone_to_temp)"
+    source_dir="$(get_config_source)"
     install_config_fresh "$source_dir"
   fi
 }
