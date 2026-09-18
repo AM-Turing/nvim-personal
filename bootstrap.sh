@@ -12,7 +12,7 @@ set -euo pipefail
 #   - JetBrainsMono Nerd Font
 #   - Neovim Python provider venv
 #   - common npm/rust/go/ruby tools
-  - Go toolchain from apt for Mason Go packages: gopls/gofumpt
+#  - Go toolchain from apt for Mason Go packages: gopls/gofumpt
 #   - this Neovim config from the current local repo when possible, otherwise GitHub
 #
 # Vivify source:
